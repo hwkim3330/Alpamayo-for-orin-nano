@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROS2 Web Dashboard - Jetson Orin Nano</title>
+
+    <!-- Robot Web Tools Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/eventemitter2@6.4.9/lib/eventemitter2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/roslib@1.3.0/build/roslib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ros3d@1.1.0/build/ros3d.min.js"></script>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <i data-lucide="cpu"></i>
+                    <span>ROS2 Dashboard</span>
+                </div>
+                <div class="device-info">
+                    <span class="device-badge">Jetson Orin Nano</span>
+                </div>
+            </div>
+            <div class="header-center">
+                <div class="connection-status" id="connection-status">
+                    <i data-lucide="wifi-off"></i>
+                    <span>Disconnected</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="system-time" id="system-time">--:--:--</div>
+                <button class="btn-icon" id="btn-settings" title="Settings">
+                    <i data-lucide="settings"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Left Panel: Vehicle State -->
+            <aside class="panel left-panel">
+                <div class="panel-section">
+                    <h3 class="section-title">
+                        <i data-lucide="gauge"></i>
+                        Vehicle State
+                    </h3>
+
+                    <div class="speed-display">
+                        <div class="speed-value" id="speed-value">0</div>
+                        <div class="speed-unit">km/h</div>
+                    </div>
+
+                    <div class="gear-indicator">
+                        <span class="gear" data-gear="P">P</span>
+                        <span class="gear" data-gear="R">R</span>
+                        <span class="gear" data-gear="N">N</span>
+                        <span class="gear active" data-gear="D">D</span>
+                    </div>
+
+                    <div class="stat-grid">
+                        <div class="stat-item">
+                            <div class="stat-icon"><i data-lucide="navigation"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="steering-value">0.0</span>
+                                <span class="stat-label">Steering</span>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-icon"><i data-lucide="battery"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="battery-value">100%</span>
+                                <span class="stat-label">Battery</span>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-icon"><i data-lucide="zap"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="power-value">0 W</span>
+                                <span class="stat-label">Power</span>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-icon"><i data-lucide="thermometer"></i></div>
+                            <div class="stat-info">
+                                <span class="stat-value" id="temp-value">--</span>
+                                <span class="stat-label">Temp</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3 class="section-title">
+                        <i data-lucide="activity"></i>
+                        System Status
+                    </h3>
+                    <div class="system-stats">
+                        <div class="sys-stat">
+                            <span class="sys-label">CPU</span>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="cpu-bar" style="width: 0%"></div>
+                            </div>
+                            <span class="sys-value" id="cpu-value">0%</span>
+                        </div>
+                        <div class="sys-stat">
+                            <span class="sys-label">GPU</span>
+                            <div class="progress-bar">
+                                <div class="progress-fill gpu" id="gpu-bar" style="width: 0%"></div>
+                            </div>
+                            <span class="sys-value" id="gpu-value">0%</span>
+                        </div>
+                        <div class="sys-stat">
+                            <span class="sys-label">RAM</span>
+                            <div class="progress-bar">
+                                <div class="progress-fill ram" id="ram-bar" style="width: 0%"></div>
+                            </div>
+                            <span class="sys-value" id="ram-value">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Center: Visualization -->
+            <div class="center-panel">
+                <!-- Tab Navigation -->
+                <div class="viz-tabs">
+                    <button class="viz-tab active" data-view="3d">
+                        <i data-lucide="box"></i>
+                        3D View
+                    </button>
+                    <button class="viz-tab" data-view="bev">
+                        <i data-lucide="map"></i>
+                        BEV
+                    </button>
+                    <button class="viz-tab" data-view="camera">
+                        <i data-lucide="camera"></i>
+                        Camera
+                    </button>
+                    <button class="viz-tab" data-view="split">
+                        <i data-lucide="layout-grid"></i>
+                        Split
+                    </button>
+                </div>
+
+                <!-- Visualization Container -->
+                <div class="viz-container">
+                    <!-- 3D View (ros3djs) -->
+                    <div class="viz-view active" id="view-3d">
+                        <div id="ros3d-viewer"></div>
+                    </div>
+
+                    <!-- BEV View -->
+                    <div class="viz-view" id="view-bev">
+                        <img id="bev-image" src="" alt="LiDAR BEV">
+                        <div class="bev-overlay">
+                            <div class="bev-grid"></div>
+                            <div class="ego-marker"></div>
+                        </div>
+                    </div>
+
+                    <!-- Camera View -->
+                    <div class="viz-view" id="view-camera">
+                        <img id="camera-image" src="" alt="Camera Feed">
+                        <div class="camera-overlay">
+                            <div class="camera-info">
+                                <span id="camera-fps">-- FPS</span>
+                                <span id="camera-res">--x--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Split View -->
+                    <div class="viz-view" id="view-split">
+                        <div class="split-grid">
+                            <div class="split-cell">
+                                <div class="split-label">3D View</div>
+                                <div id="ros3d-viewer-mini"></div>
+                            </div>
+                            <div class="split-cell">
+                                <div class="split-label">Camera</div>
+                                <img id="camera-image-mini" src="" alt="Camera">
+                            </div>
+                            <div class="split-cell">
+                                <div class="split-label">BEV</div>
+                                <img id="bev-image-mini" src="" alt="BEV">
+                            </div>
+                            <div class="split-cell">
+                                <div class="split-label">Path</div>
+                                <canvas id="path-canvas"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Info Bar -->
+                <div class="info-bar">
+                    <div class="info-item">
+                        <i data-lucide="radio"></i>
+                        <span>Topics: <strong id="topic-count">0</strong></span>
+                    </div>
+                    <div class="info-item">
+                        <i data-lucide="clock"></i>
+                        <span>Latency: <strong id="latency-value">--</strong></span>
+                    </div>
+                    <div class="info-item">
+                        <i data-lucide="activity"></i>
+                        <span>FPS: <strong id="render-fps">0</strong></span>
+                    </div>
+                    <div class="info-item mode-badge">
+                        <span id="drive-mode">Manual</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Detections & Path -->
+            <aside class="panel right-panel">
+                <div class="panel-section">
+                    <h3 class="section-title">
+                        <i data-lucide="scan"></i>
+                        Detections
+                        <span class="badge" id="detection-count">0</span>
+                    </h3>
+                    <div class="detection-list" id="detection-list">
+                        <div class="empty-state">
+                            <i data-lucide="eye-off"></i>
+                            <span>No detections</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3 class="section-title">
+                        <i data-lucide="route"></i>
+                        Path Planning
+                    </h3>
+                    <div class="path-info">
+                        <div class="path-stat">
+                            <span class="path-label">Curvature</span>
+                            <span class="path-value" id="path-curvature">0.00</span>
+                        </div>
+                        <div class="path-stat">
+                            <span class="path-label">Offset</span>
+                            <span class="path-value" id="path-offset">0.0m</span>
+                        </div>
+                        <div class="path-stat">
+                            <span class="path-label">Heading</span>
+                            <span class="path-value" id="path-heading">0.0°</span>
+                        </div>
+                    </div>
+                    <div class="confidence-meter">
+                        <div class="confidence-label">
+                            <span>Confidence</span>
+                            <span id="confidence-value">--%</span>
+                        </div>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" id="confidence-fill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3 class="section-title">
+                        <i data-lucide="terminal"></i>
+                        Console
+                    </h3>
+                    <div class="console" id="console">
+                        <div class="console-line">[INFO] Dashboard initialized</div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settings-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="btn-icon" id="btn-close-settings">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <label>ROS Bridge URL</label>
+                    <input type="text" id="rosbridge-url" value="ws://localhost:9090">
+                </div>
+                <div class="setting-group">
+                    <label>Video Server URL</label>
+                    <input type="text" id="video-url" value="http://localhost:8080">
+                </div>
+                <div class="setting-group">
+                    <label>Camera Topic</label>
+                    <input type="text" id="camera-topic" value="/camera/image_web">
+                </div>
+                <div class="setting-group">
+                    <label>BEV Topic</label>
+                    <input type="text" id="bev-topic" value="/lidar/bev_image">
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="auto-reconnect" checked>
+                        Auto Reconnect
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btn-cancel-settings">Cancel</button>
+                <button class="btn btn-primary" id="btn-save-settings">Save & Connect</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/dashboard.js"></script>
+</body>
+</html>
