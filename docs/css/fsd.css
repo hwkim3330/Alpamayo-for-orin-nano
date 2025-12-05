@@ -1,0 +1,620 @@
+/* FSD Dashboard Styles */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-dark: #0a0a0a;
+    --bg-card: rgba(20, 20, 25, 0.95);
+    --bg-modal: rgba(15, 15, 20, 0.98);
+    --text-primary: #f0f0f0;
+    --text-secondary: #888;
+    --accent-blue: #3b82f6;
+    --accent-green: #22c55e;
+    --accent-red: #ef4444;
+    --accent-yellow: #eab308;
+    --accent-purple: #a855f7;
+    --lane-color: #3a3a4a;
+}
+
+body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: radial-gradient(ellipse at top, #1a1a2e 0%, #0a0a0a 60%);
+    color: var(--text-primary);
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+}
+
+/* Connection Modal */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.modal-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.modal {
+    background: var(--bg-modal);
+    border-radius: 24px;
+    padding: 32px;
+    width: 90%;
+    max-width: 420px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+}
+
+.modal-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #3b82f6, #a855f7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.modal-subtitle {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-bottom: 24px;
+}
+
+.input-group {
+    margin-bottom: 16px;
+}
+
+.input-label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.input-row {
+    display: flex;
+    gap: 12px;
+}
+
+.input-field {
+    flex: 1;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 15px;
+    font-family: 'JetBrains Mono', monospace;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.input-field:focus {
+    border-color: var(--accent-blue);
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.input-field.port {
+    width: 100px;
+    flex: none;
+}
+
+.preset-buttons {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.preset-btn {
+    padding: 8px 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.preset-btn:hover {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: var(--accent-blue);
+    color: var(--text-primary);
+}
+
+.connect-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+}
+
+.connect-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3);
+}
+
+.demo-link {
+    display: block;
+    text-align: center;
+    margin-top: 16px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.demo-link:hover {
+    color: var(--accent-purple);
+}
+
+/* Dashboard Grid */
+.dashboard {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    height: 100vh;
+    padding: 16px;
+    gap: 16px;
+}
+
+/* Road Section */
+.road-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.road-view {
+    flex: 1;
+    position: relative;
+    background: linear-gradient(180deg, #0d0d12 0%, #050507 100%);
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+/* Lanes */
+.lane {
+    position: absolute;
+    width: 3px;
+    top: 0;
+    bottom: 0;
+    background: var(--lane-color);
+}
+
+.lane.left { left: 25%; }
+.lane.center {
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg,
+        transparent 0%,
+        var(--lane-color) 10%,
+        var(--lane-color) 45%,
+        transparent 55%,
+        var(--lane-color) 65%,
+        var(--lane-color) 100%
+    );
+    width: 4px;
+}
+.lane.right { right: 25%; }
+
+.road-grid {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg,
+        transparent 0%,
+        rgba(60, 60, 80, 0.1) 50%,
+        rgba(60, 60, 80, 0.2) 100%
+    );
+}
+
+/* Ego Vehicle */
+.ego-car {
+    position: absolute;
+    width: 40px;
+    height: 70px;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%) rotate(0deg);
+    transform-origin: center bottom;
+    transition: transform 0.15s ease-out;
+}
+
+.ego-car-body {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+    border-radius: 8px 8px 4px 4px;
+    box-shadow:
+        0 0 20px rgba(59, 130, 246, 0.4),
+        inset 0 -10px 20px rgba(0, 0, 0, 0.3);
+}
+
+.ego-car-windshield {
+    position: absolute;
+    top: 8px;
+    left: 6px;
+    right: 6px;
+    height: 18px;
+    background: rgba(100, 200, 255, 0.3);
+    border-radius: 4px 4px 2px 2px;
+}
+
+/* Path Prediction */
+.path-prediction {
+    position: absolute;
+    bottom: 130px;
+    left: 50%;
+    width: 60px;
+    height: 200px;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.path-line {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border: 3px solid transparent;
+    border-image: linear-gradient(180deg, transparent, rgba(34, 197, 94, 0.6)) 1;
+    border-radius: 30px 30px 0 0;
+    transition: transform 0.2s ease-out;
+}
+
+/* Detection Boxes */
+.detection-box {
+    position: absolute;
+    border: 2px solid var(--accent-blue);
+    border-radius: 4px;
+    background: rgba(59, 130, 246, 0.1);
+    transition: all 0.3s ease-out;
+}
+
+.detection-box.vehicle { border-color: var(--accent-blue); }
+.detection-box.pedestrian { border-color: var(--accent-yellow); }
+.detection-box.cyclist { border-color: var(--accent-green); }
+
+.detection-label {
+    position: absolute;
+    top: -20px;
+    left: 0;
+    font-size: 10px;
+    background: inherit;
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+/* Status Bar */
+.status-bar {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    background: var(--bg-card);
+    border-radius: 16px;
+    align-items: center;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.status-dot.disconnected {
+    background: var(--accent-red);
+    animation: none;
+}
+
+.mode-chip {
+    padding: 6px 14px;
+    background: var(--bg-dark);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+
+.mode-chip.active {
+    background: var(--accent-green);
+    color: #000;
+}
+
+.settings-btn {
+    margin-left: auto;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.settings-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--text-primary);
+}
+
+.feedback-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.feedback-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.feedback-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.feedback-btn:active {
+    transform: scale(0.95);
+}
+
+/* Info Panel */
+.info-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 20px;
+}
+
+.card-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+}
+
+/* Speed Display */
+.speed-display {
+    text-align: center;
+    padding: 20px 0;
+}
+
+.speed-value {
+    font-size: 80px;
+    font-weight: 200;
+    line-height: 1;
+    background: linear-gradient(180deg, #fff 0%, #999 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.speed-unit {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+/* Steering */
+.steering-container {
+    margin-top: 24px;
+}
+
+.steering-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.steering-bar {
+    position: relative;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: visible;
+}
+
+.steering-center {
+    position: absolute;
+    left: 50%;
+    top: -4px;
+    bottom: -4px;
+    width: 2px;
+    background: var(--text-secondary);
+    transform: translateX(-50%);
+}
+
+.steering-indicator {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: var(--accent-blue);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transition: left 0.15s ease-out;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+}
+
+/* Camera */
+.camera-container {
+    flex: 1;
+    min-height: 180px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+    position: relative;
+}
+
+.camera-feed {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.camera-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.camera-overlay {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 8px;
+}
+
+.camera-badge {
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Detection List */
+.detection-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.detection-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent-blue);
+}
+
+.detection-item.vehicle { border-left-color: var(--accent-blue); }
+.detection-item.pedestrian { border-left-color: var(--accent-yellow); }
+.detection-item.cyclist { border-left-color: var(--accent-green); }
+
+.detection-icon { font-size: 18px; }
+
+.detection-info { flex: 1; }
+
+.detection-name {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.detection-meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.detection-distance {
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.stat-item {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 20px;
+    font-weight: 500;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.stat-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+}
+
+/* Responsive */
+@media (max-width: 800px) {
+    .dashboard {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+    }
+
+    .info-panel {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .card {
+        flex: 1;
+        min-width: 150px;
+    }
+}
