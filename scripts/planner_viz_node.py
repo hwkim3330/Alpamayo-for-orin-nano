@@ -211,7 +211,7 @@ class PlannerVizNode(Node):
             {
                 'id': 1,
                 'type': 'vehicle',
-                'label': 'Tesla Model 3',
+                'label': 'Sedan',
                 'distance': round(8.0 + math.sin(self.time_offset) * 0.5, 1),
                 'confidence': 0.96,
                 'speed': 45.0

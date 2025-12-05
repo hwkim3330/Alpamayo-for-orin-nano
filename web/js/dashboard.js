@@ -496,7 +496,7 @@ class DemoMode {
         const detections = [
             {
                 type: 'vehicle',
-                label: 'Tesla Model 3',
+                label: 'Sedan',
                 distance: (8 + Math.sin(this.time) * 2).toFixed(1),
                 confidence: 0.95
             },
