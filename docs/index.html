@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alpamayo - Autonomous RC Car Platform</title>
+    <title>Alpamayo - Tesla V14-inspired Autonomous RC Car</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -16,21 +16,23 @@
         <div class="logo">Alpamayo</div>
         <nav class="nav-links">
             <a href="#features">Features</a>
-            <a href="#architecture">Architecture</a>
+            <a href="#v14">V14 Architecture</a>
             <a href="fsd/">Dashboard</a>
+            <a href="fsd/bev.html">BEV Viewer</a>
             <a href="https://github.com/hwkim3330/Alpamayo-for-orin-nano" target="_blank">GitHub</a>
         </nav>
     </header>
 
     <section class="hero">
-        <h1>End-to-End Autonomous RC Car</h1>
+        <h1>Tesla V14-inspired E2E Autonomous RC Car</h1>
         <p>
-            A lightweight perception-to-control pipeline for Jetson Orin Nano.
-            CSI camera + 2D LiDAR fusion with online imitation learning.
+            LiDAR-centric End-to-End driving with Occupancy Network.
+            ~150K parameters, &lt;10ms inference on Jetson Orin Nano.
         </p>
         <div class="hero-buttons">
             <a href="fsd/" class="btn btn-primary">Launch Dashboard</a>
-            <a href="https://github.com/hwkim3330/Alpamayo-for-orin-nano" class="btn btn-secondary" target="_blank">View on GitHub</a>
+            <a href="fsd/bev.html" class="btn btn-secondary">BEV Viewer</a>
+            <a href="https://github.com/hwkim3330/Alpamayo-for-orin-nano" class="btn btn-secondary" target="_blank">GitHub</a>
         </div>
     </section>
 
@@ -46,76 +48,80 @@
     </section>
 
     <section id="features" class="features">
-        <h2 class="section-title">Features</h2>
+        <h2 class="section-title">Key Features</h2>
         <div class="features-grid">
             <div class="feature-card">
-                <div class="feature-icon blue">📷</div>
-                <h3>CSI Camera CNN</h3>
-                <p>EfficientNet-inspired architecture optimized for SD resolution (320x240). Change detection gating for efficient inference.</p>
-            </div>
-            <div class="feature-card">
                 <div class="feature-icon green">📡</div>
-                <h3>LiDAR Temporal Encoder</h3>
-                <p>Bird's Eye View grid with ConvGRU for temporal encoding. Optimized for RC car scale with 5cm resolution.</p>
+                <h3>LiDAR-Centric</h3>
+                <p>2D LiDAR as primary sensor. BEV grid with ConvGRU temporal encoding. Camera is optional enhancement.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon purple">🧠</div>
-                <h3>Sensor Fusion</h3>
-                <p>Cross-modal attention between camera and LiDAR features. Safety layer with uncertainty-based control.</p>
+                <h3>OccupancyNet</h3>
+                <p>2.5D occupancy + flow prediction. Replaces detection, tracking, and motion prediction in one network.</p>
             </div>
             <div class="feature-card">
-                <div class="feature-icon orange">📚</div>
-                <h3>Online Learning</h3>
-                <p>Imitation learning from teacher signals with replay buffer. Real-time adaptation to new environments.</p>
+                <div class="feature-icon blue">🎯</div>
+                <h3>E2E Planning</h3>
+                <p>Deterministic trajectory head. No diffusion, no LLM - pure feedforward for low latency.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon orange">🛡️</div>
+                <h3>Safety Layer</h3>
+                <p>Rule-based constraints on neural outputs. Risk-aware speed modulation and turn limiting.</p>
             </div>
         </div>
     </section>
 
-    <section id="architecture" class="architecture">
-        <h2 class="section-title">Model Architecture</h2>
-        <p class="architecture-subtitle">End-to-end perception to control pipeline</p>
+    <section id="v14" class="architecture">
+        <h2 class="section-title">V14-Lite Architecture</h2>
+        <p class="architecture-subtitle">Tesla FSD V14-inspired End-to-End pipeline for RC car</p>
 
         <div class="arch-diagram">
             <div class="arch-row">
                 <div class="arch-box input">
-                    <h4>CSI Camera</h4>
-                    <div class="specs">320x240 RGB</div>
-                </div>
-                <div class="arch-box input">
                     <h4>2D LiDAR</h4>
                     <div class="specs">RPLIDAR / YDLidar</div>
+                </div>
+                <div class="arch-box input" style="opacity: 0.6;">
+                    <h4>CSI Camera</h4>
+                    <div class="specs">Optional</div>
                 </div>
             </div>
             <div class="arch-arrow">↓</div>
             <div class="arch-row">
                 <div class="arch-box model">
-                    <h4>CameraCNN</h4>
-                    <div class="specs">~100K params → 64-dim</div>
+                    <h4>LiDAR BEV Encoder</h4>
+                    <div class="specs">~50K params + ConvGRU</div>
                 </div>
-                <div class="arch-box model">
-                    <h4>BEV + ConvGRU</h4>
-                    <div class="specs">~50K params → 32-dim</div>
+                <div class="arch-box model" style="opacity: 0.6;">
+                    <h4>Camera Hint</h4>
+                    <div class="specs">~30K params</div>
                 </div>
             </div>
             <div class="arch-arrow">↓</div>
             <div class="arch-row">
                 <div class="arch-box fusion">
-                    <h4>Feature Attention</h4>
-                    <div class="specs">Cross-modal fusion</div>
+                    <h4>OccupancyNet</h4>
+                    <div class="specs">2.5D Occupancy + Flow + Risk</div>
                 </div>
             </div>
             <div class="arch-arrow">↓</div>
             <div class="arch-row">
                 <div class="arch-box model">
-                    <h4>PlannerHead</h4>
-                    <div class="specs">MLP + Safety Layer</div>
+                    <h4>Trajectory Planner</h4>
+                    <div class="specs">Cost Volume + MLP</div>
                 </div>
             </div>
             <div class="arch-arrow">↓</div>
             <div class="arch-row">
                 <div class="arch-box output">
+                    <h4>Waypoints</h4>
+                    <div class="specs">[T, 2] positions</div>
+                </div>
+                <div class="arch-box output">
                     <h4>Steering</h4>
-                    <div class="specs">±30° range</div>
+                    <div class="specs">±30°</div>
                 </div>
                 <div class="arch-box output">
                     <h4>Speed</h4>
@@ -130,33 +136,66 @@
         <div class="specs-grid">
             <div class="spec-card">
                 <div class="spec-value">~150K</div>
-                <div class="spec-label">Total Parameters</div>
+                <div class="spec-label">Parameters</div>
             </div>
             <div class="spec-card">
-                <div class="spec-value">&lt;15ms</div>
-                <div class="spec-label">Total Inference</div>
+                <div class="spec-value">&lt;10ms</div>
+                <div class="spec-label">TensorRT Inference</div>
             </div>
             <div class="spec-card">
                 <div class="spec-value">20Hz</div>
                 <div class="spec-label">Control Frequency</div>
             </div>
             <div class="spec-card">
-                <div class="spec-value">320x240</div>
-                <div class="spec-label">Camera Resolution</div>
-            </div>
-            <div class="spec-card">
-                <div class="spec-value">240x200</div>
-                <div class="spec-label">BEV Grid Size</div>
+                <div class="spec-value">240×200</div>
+                <div class="spec-label">BEV Grid</div>
             </div>
             <div class="spec-card">
                 <div class="spec-value">5cm</div>
                 <div class="spec-label">Grid Resolution</div>
             </div>
+            <div class="spec-card">
+                <div class="spec-value">FP16</div>
+                <div class="spec-label">TensorRT Precision</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Comparison Section -->
+    <section class="features">
+        <h2 class="section-title">Tesla V14 vs Alpamayo</h2>
+        <div class="features-grid" style="grid-template-columns: 1fr 1fr;">
+            <div class="feature-card">
+                <div class="feature-icon blue">🚗</div>
+                <h3>Tesla FSD V14</h3>
+                <p>
+                    • 8 cameras, no LiDAR<br>
+                    • ~300-500M parameters<br>
+                    • Full 3D occupancy<br>
+                    • Custom NPU (30-35W)<br>
+                    • 10-20ms latency
+                </p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon green">🏎️</div>
+                <h3>Alpamayo V14-Lite</h3>
+                <p>
+                    • 1 camera (optional) + LiDAR<br>
+                    • ~150K parameters<br>
+                    • 2.5D occupancy<br>
+                    • Orin Nano (7-15W)<br>
+                    • &lt;10ms latency
+                </p>
+            </div>
         </div>
     </section>
 
     <footer class="footer">
-        <p>Built for Jetson Orin Nano | <a href="https://github.com/hwkim3330/Alpamayo-for-orin-nano">View Source</a></p>
+        <p>
+            Built for Jetson Orin Nano |
+            <a href="https://github.com/hwkim3330/Alpamayo-for-orin-nano">View Source</a> |
+            Inspired by <a href="https://www.tesla.com/AI" target="_blank">Tesla AI</a>
+        </p>
     </footer>
 </body>
 </html>
