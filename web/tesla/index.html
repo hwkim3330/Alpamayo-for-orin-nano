@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mini FSD Dashboard</title>
+
+    <!-- ROS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/roslib@1.3.0/build/roslib.min.js"></script>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0a0a0a;
+            --bg-card: rgba(20, 20, 25, 0.95);
+            --text-primary: #f0f0f0;
+            --text-secondary: #888;
+            --accent-blue: #3b82f6;
+            --accent-green: #22c55e;
+            --accent-red: #ef4444;
+            --accent-yellow: #eab308;
+            --lane-color: #3a3a4a;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            background: radial-gradient(ellipse at top, #1a1a2e 0%, #0a0a0a 60%);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            height: 100vh;
+            padding: 16px;
+            gap: 16px;
+        }
+
+        /* Left side - Road visualization */
+        .road-section {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .road-view {
+            flex: 1;
+            position: relative;
+            background: linear-gradient(180deg, #0d0d12 0%, #050507 100%);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        /* Lane lines */
+        .lane {
+            position: absolute;
+            width: 3px;
+            top: 0;
+            bottom: 0;
+            background: var(--lane-color);
+        }
+
+        .lane.left { left: 25%; }
+        .lane.center {
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(180deg,
+                transparent 0%,
+                var(--lane-color) 10%,
+                var(--lane-color) 45%,
+                transparent 55%,
+                var(--lane-color) 65%,
+                var(--lane-color) 100%
+            );
+            width: 4px;
+        }
+        .lane.right { right: 25%; }
+
+        /* Road perspective grid */
+        .road-grid {
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(180deg,
+                    transparent 0%,
+                    rgba(60, 60, 80, 0.1) 50%,
+                    rgba(60, 60, 80, 0.2) 100%
+                );
+        }
+
+        /* Ego vehicle */
+        .ego-car {
+            position: absolute;
+            width: 40px;
+            height: 70px;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%) rotate(0deg);
+            transform-origin: center bottom;
+            transition: transform 0.15s ease-out;
+        }
+
+        .ego-car-body {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #2196f3 0%, #1565c0 100%);
+            border-radius: 8px 8px 4px 4px;
+            box-shadow:
+                0 0 20px rgba(33, 150, 243, 0.4),
+                inset 0 -10px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .ego-car-windshield {
+            position: absolute;
+            top: 8px;
+            left: 6px;
+            right: 6px;
+            height: 18px;
+            background: rgba(100, 200, 255, 0.3);
+            border-radius: 4px 4px 2px 2px;
+        }
+
+        /* Path prediction */
+        .path-prediction {
+            position: absolute;
+            bottom: 130px;
+            left: 50%;
+            width: 60px;
+            height: 200px;
+            transform: translateX(-50%);
+            pointer-events: none;
+        }
+
+        .path-line {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 3px solid transparent;
+            border-image: linear-gradient(180deg, transparent, rgba(34, 197, 94, 0.6)) 1;
+            border-radius: 30px 30px 0 0;
+            transition: transform 0.2s ease-out;
+        }
+
+        /* Detection boxes */
+        .detection-box {
+            position: absolute;
+            border: 2px solid var(--accent-blue);
+            border-radius: 4px;
+            background: rgba(59, 130, 246, 0.1);
+            transition: all 0.3s ease-out;
+        }
+
+        .detection-box.vehicle { border-color: var(--accent-blue); }
+        .detection-box.pedestrian { border-color: var(--accent-yellow); }
+        .detection-box.cyclist { border-color: var(--accent-green); }
+
+        .detection-label {
+            position: absolute;
+            top: -20px;
+            left: 0;
+            font-size: 10px;
+            background: inherit;
+            padding: 2px 6px;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+
+        /* Status bar */
+        .status-bar {
+            display: flex;
+            gap: 12px;
+            padding: 16px;
+            background: var(--bg-card);
+            border-radius: 16px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+        }
+
+        .status-dot.disconnected { background: var(--accent-red); }
+
+        .mode-chip {
+            padding: 6px 14px;
+            background: var(--bg-dark);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .mode-chip.active {
+            background: var(--accent-green);
+            color: #000;
+        }
+
+        .feedback-buttons {
+            margin-left: auto;
+            display: flex;
+            gap: 8px;
+        }
+
+        .feedback-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .feedback-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .feedback-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Right panel */
+        .info-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 20px;
+        }
+
+        .card-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        /* Speed display */
+        .speed-display {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .speed-value {
+            font-size: 80px;
+            font-weight: 200;
+            line-height: 1;
+            background: linear-gradient(180deg, #fff 0%, #999 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .speed-unit {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Steering indicator */
+        .steering-container {
+            margin-top: 24px;
+        }
+
+        .steering-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .steering-bar {
+            position: relative;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: visible;
+        }
+
+        .steering-center {
+            position: absolute;
+            left: 50%;
+            top: -4px;
+            bottom: -4px;
+            width: 2px;
+            background: var(--text-secondary);
+            transform: translateX(-50%);
+        }
+
+        .steering-indicator {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: left 0.15s ease-out;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+
+        /* Camera view */
+        .camera-container {
+            flex: 1;
+            min-height: 180px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+            position: relative;
+        }
+
+        .camera-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .camera-overlay {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .camera-badge {
+            padding: 4px 8px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 4px;
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Detection list */
+        .detection-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .detection-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid var(--accent-blue);
+        }
+
+        .detection-item.vehicle { border-left-color: var(--accent-blue); }
+        .detection-item.pedestrian { border-left-color: var(--accent-yellow); }
+        .detection-item.cyclist { border-left-color: var(--accent-green); }
+
+        .detection-icon {
+            font-size: 18px;
+        }
+
+        .detection-info {
+            flex: 1;
+        }
+
+        .detection-name {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .detection-meta {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .detection-distance {
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Stats grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .stat-item {
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 500;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        /* Responsive */
+        @media (max-width: 800px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr auto;
+            }
+
+            .info-panel {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            .card {
+                flex: 1;
+                min-width: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Left: Road View -->
+        <div class="road-section">
+            <div class="road-view">
+                <div class="road-grid"></div>
+                <div class="lane left"></div>
+                <div class="lane center"></div>
+                <div class="lane right"></div>
+
+                <!-- Path prediction -->
+                <div class="path-prediction">
+                    <div class="path-line" id="pathLine"></div>
+                </div>
+
+                <!-- Detection boxes (dynamically added) -->
+                <div id="detectionBoxes"></div>
+
+                <!-- Ego vehicle -->
+                <div class="ego-car" id="egoCar">
+                    <div class="ego-car-body">
+                        <div class="ego-car-windshield"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-dot" id="rosStatusDot"></div>
+                    <span id="rosStatus">Disconnected</span>
+                </div>
+                <div class="mode-chip" id="modeChip">MANUAL</div>
+                <div class="status-item">
+                    <span>Samples: <strong id="sampleCount">0</strong></span>
+                </div>
+                <div class="feedback-buttons">
+                    <button class="feedback-btn" onclick="sendFeedback('good')">Good</button>
+                    <button class="feedback-btn" onclick="sendFeedback('bad')">Bad</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Info Panel -->
+        <div class="info-panel">
+            <div class="card">
+                <div class="card-title">Speed</div>
+                <div class="speed-display">
+                    <div class="speed-value" id="speedValue">0</div>
+                    <div class="speed-unit">m/s</div>
+                </div>
+
+                <div class="steering-container">
+                    <div class="steering-label">
+                        <span>Left</span>
+                        <span id="steeringValue">0°</span>
+                        <span>Right</span>
+                    </div>
+                    <div class="steering-bar">
+                        <div class="steering-center"></div>
+                        <div class="steering-indicator" id="steeringIndicator"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card camera-container">
+                <img class="camera-feed" id="cameraFeed"
+                     src=""
+                     alt="Camera Feed"
+                     onerror="this.style.display='none'">
+                <div class="camera-overlay">
+                    <span class="camera-badge" id="cameraFps">-- FPS</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Detections</div>
+                <div class="detection-list" id="detectionList">
+                    <div class="detection-item vehicle">
+                        <span class="detection-icon">🚗</span>
+                        <div class="detection-info">
+                            <div class="detection-name">Vehicle</div>
+                            <div class="detection-meta">Ahead</div>
+                        </div>
+                        <span class="detection-distance">8.5m</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">System</div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="cpuValue">--</div>
+                        <div class="stat-label">CPU %</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="gpuValue">--</div>
+                        <div class="stat-label">GPU %</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="latencyValue">--</div>
+                        <div class="stat-label">Latency ms</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="inferenceValue">--</div>
+                        <div class="stat-label">Inference ms</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const CONFIG = {
+            rosbridgeUrl: 'ws://192.168.4.1:9090',
+            videoServerUrl: 'http://192.168.4.1:8080',
+            cameraTopic: '/camera/front/image_raw',
+            reconnectDelay: 3000,
+            maxSteeringAngle: 30  // degrees
+        };
+
+        // State with smooth interpolation
+        const state = {
+            targetSpeed: 0,
+            currentSpeed: 0,
+            targetSteering: 0,
+            currentSteering: 0,
+            sampleCount: 0,
+            connected: false,
+            detections: []
+        };
+
+        // DOM Elements
+        const elements = {
+            rosStatus: document.getElementById('rosStatus'),
+            rosStatusDot: document.getElementById('rosStatusDot'),
+            speedValue: document.getElementById('speedValue'),
+            steeringValue: document.getElementById('steeringValue'),
+            steeringIndicator: document.getElementById('steeringIndicator'),
+            modeChip: document.getElementById('modeChip'),
+            sampleCount: document.getElementById('sampleCount'),
+            egoCar: document.getElementById('egoCar'),
+            pathLine: document.getElementById('pathLine'),
+            detectionList: document.getElementById('detectionList'),
+            detectionBoxes: document.getElementById('detectionBoxes'),
+            cameraFeed: document.getElementById('cameraFeed'),
+            cpuValue: document.getElementById('cpuValue'),
+            gpuValue: document.getElementById('gpuValue'),
+            latencyValue: document.getElementById('latencyValue'),
+            inferenceValue: document.getElementById('inferenceValue')
+        };
+
+        // ROS Connection
+        let ros = null;
+        let cmdTopic = null;
+        let feedbackTopic = null;
+        let detectionsTopic = null;
+
+        function connect() {
+            ros = new ROSLIB.Ros({ url: CONFIG.rosbridgeUrl });
+
+            ros.on('connection', () => {
+                state.connected = true;
+                updateConnectionStatus(true);
+                setupTopics();
+                setupCameraFeed();
+            });
+
+            ros.on('close', () => {
+                state.connected = false;
+                updateConnectionStatus(false);
+                setTimeout(connect, CONFIG.reconnectDelay);
+            });
+
+            ros.on('error', (error) => {
+                console.error('ROS error:', error);
+            });
+        }
+
+        function updateConnectionStatus(connected) {
+            elements.rosStatus.textContent = connected ? 'Connected' : 'Disconnected';
+            elements.rosStatusDot.classList.toggle('disconnected', !connected);
+        }
+
+        function setupTopics() {
+            // Planner command
+            cmdTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/planner/cmd',
+                messageType: 'geometry_msgs/Vector3'
+            });
+
+            cmdTopic.subscribe((msg) => {
+                state.sampleCount++;
+                elements.sampleCount.textContent = state.sampleCount;
+
+                // x: steering (rad), y: speed (m/s)
+                state.targetSteering = msg.x * 180 / Math.PI;  // Convert to degrees
+                state.targetSpeed = msg.y;
+
+                // Update mode
+                if (Math.abs(state.targetSpeed) > 0.1) {
+                    elements.modeChip.textContent = 'FSD';
+                    elements.modeChip.classList.add('active');
+                } else {
+                    elements.modeChip.textContent = 'MANUAL';
+                    elements.modeChip.classList.remove('active');
+                }
+            });
+
+            // Feedback topic
+            feedbackTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/training/feedback',
+                messageType: 'std_msgs/String'
+            });
+
+            // Detections
+            detectionsTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/planner/detections_json',
+                messageType: 'std_msgs/String'
+            });
+
+            detectionsTopic.subscribe((msg) => {
+                try {
+                    state.detections = JSON.parse(msg.data);
+                    updateDetections();
+                } catch (e) {
+                    console.error('Detection parse error:', e);
+                }
+            });
+        }
+
+        function setupCameraFeed() {
+            const url = `${CONFIG.videoServerUrl}/stream?topic=${CONFIG.cameraTopic}&type=mjpeg&quality=60`;
+            elements.cameraFeed.src = url;
+            elements.cameraFeed.style.display = 'block';
+        }
+
+        function sendFeedback(type) {
+            if (feedbackTopic) {
+                feedbackTopic.publish({ data: type });
+
+                // Visual feedback
+                const btn = event.target;
+                btn.style.background = type === 'good' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)';
+                setTimeout(() => {
+                    btn.style.background = '';
+                }, 200);
+            }
+        }
+
+        function updateDetections() {
+            const icons = {
+                vehicle: '🚗',
+                pedestrian: '🚶',
+                cyclist: '🚴',
+                unknown: '❓'
+            };
+
+            elements.detectionList.innerHTML = state.detections.map(det => `
+                <div class="detection-item ${det.type || 'unknown'}">
+                    <span class="detection-icon">${icons[det.type] || icons.unknown}</span>
+                    <div class="detection-info">
+                        <div class="detection-name">${det.label || det.type || 'Object'}</div>
+                        <div class="detection-meta">Conf: ${((det.confidence || 0) * 100).toFixed(0)}%</div>
+                    </div>
+                    <span class="detection-distance">${det.distance || '--'}m</span>
+                </div>
+            `).join('');
+
+            // Update 3D detection boxes (simplified 2D representation)
+            updateDetectionBoxes();
+        }
+
+        function updateDetectionBoxes() {
+            elements.detectionBoxes.innerHTML = state.detections.slice(0, 5).map((det, i) => {
+                const dist = parseFloat(det.distance) || 10;
+                const scale = Math.max(0.3, 1 - dist / 20);
+                const top = 20 + (1 - scale) * 40;
+                const left = 40 + (i - 2) * 15;
+
+                return `
+                    <div class="detection-box ${det.type || ''}"
+                         style="
+                             width: ${40 * scale}px;
+                             height: ${60 * scale}px;
+                             top: ${top}%;
+                             left: ${left}%;
+                             transform: translate(-50%, -50%);
+                         ">
+                        <div class="detection-label">${det.distance}m</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Animation loop with smooth interpolation
+        function animate() {
+            // Smooth interpolation (lerp factor 0.15)
+            const lerp = 0.15;
+            state.currentSpeed += (state.targetSpeed - state.currentSpeed) * lerp;
+            state.currentSteering += (state.targetSteering - state.currentSteering) * lerp;
+
+            // Update speed display
+            elements.speedValue.textContent = Math.abs(state.currentSpeed).toFixed(1);
+
+            // Update steering display
+            elements.steeringValue.textContent = state.currentSteering.toFixed(0) + '°';
+
+            // Clamp steering for UI
+            const clampedSteering = Math.max(-CONFIG.maxSteeringAngle,
+                                             Math.min(CONFIG.maxSteeringAngle, state.currentSteering));
+
+            // Steering indicator position (0% = left, 50% = center, 100% = right)
+            const steeringPercent = 50 + (clampedSteering / CONFIG.maxSteeringAngle) * 40;
+            elements.steeringIndicator.style.left = steeringPercent + '%';
+
+            // Ego car rotation
+            elements.egoCar.style.transform = `translateX(-50%) rotate(${clampedSteering * 0.5}deg)`;
+
+            // Path prediction curve
+            elements.pathLine.style.transform = `skewX(${-clampedSteering * 0.8}deg)`;
+
+            // Simulated system stats (replace with real data when available)
+            if (state.connected) {
+                elements.cpuValue.textContent = Math.round(40 + Math.random() * 30);
+                elements.gpuValue.textContent = Math.round(50 + Math.random() * 40);
+                elements.latencyValue.textContent = Math.round(5 + Math.random() * 10);
+                elements.inferenceValue.textContent = Math.round(8 + Math.random() * 6);
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Demo mode for testing
+        function startDemo() {
+            let t = 0;
+            setInterval(() => {
+                t += 0.05;
+                state.targetSpeed = 1.5 + Math.sin(t * 0.3) * 0.8;
+                state.targetSteering = Math.sin(t * 0.4) * 20;
+                state.sampleCount++;
+                elements.sampleCount.textContent = state.sampleCount;
+
+                elements.modeChip.textContent = 'DEMO';
+                elements.modeChip.classList.add('active');
+
+                // Demo detections
+                state.detections = [
+                    { type: 'vehicle', label: 'Car', distance: (8 + Math.sin(t) * 2).toFixed(1), confidence: 0.95 },
+                    { type: 'pedestrian', label: 'Person', distance: (5 + Math.cos(t) * 1).toFixed(1), confidence: 0.88 },
+                    { type: 'cyclist', label: 'Bike', distance: (12 + Math.sin(t * 0.5) * 3).toFixed(1), confidence: 0.91 }
+                ];
+                updateDetections();
+            }, 100);
+        }
+
+        // Initialize
+        connect();
+        animate();
+
+        // Start demo if not connected after 5 seconds
+        setTimeout(() => {
+            if (!state.connected) {
+                console.log('Starting demo mode...');
+                updateConnectionStatus(true);
+                elements.rosStatus.textContent = 'Demo Mode';
+                startDemo();
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
