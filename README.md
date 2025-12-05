@@ -2,100 +2,139 @@
 
 End-to-end autonomous driving pipeline for Jetson Orin Nano with CSI camera and 2D LiDAR.
 
-**[Live Demo](https://hwkim3330.github.io/Alpamayo-for-orin-nano/)** | **[Dashboard](https://hwkim3330.github.io/Alpamayo-for-orin-nano/fsd/)**
+**[Live Demo](https://hwkim3330.github.io/Alpamayo-for-orin-nano/)** | **[Dashboard](https://hwkim3330.github.io/Alpamayo-for-orin-nano/fsd/)** | **[BEV Viewer](https://hwkim3330.github.io/Alpamayo-for-orin-nano/fsd/bev.html)**
 
 ## Overview
 
-Alpamayo is a lightweight perception-to-control system designed for RC car scale autonomous driving. It features:
+Alpamayo is a Tesla FSD V14-inspired End-to-End autonomous driving system optimized for RC car scale. Key features:
 
-- **CameraCNN**: EfficientNet-inspired encoder for SD camera (320x240)
-- **LiDAR Temporal Encoder**: BEV grid with ConvGRU for 2D LiDAR
-- **Sensor Fusion**: Cross-modal attention between camera and LiDAR
-- **Online Learning**: Imitation learning from teacher signals
+- **V14-Lite Architecture**: LiDAR-centric E2E model (~150K params)
+- **Occupancy Network**: 2.5D occupancy + flow prediction
+- **Deterministic Planning**: No diffusion, pure feedforward
+- **Safety Layer**: Rule-based constraints on neural outputs
+- **TensorRT Optimized**: <10ms inference on Orin Nano
 
-## Model Architecture
+## Model Architectures
+
+### V14-Lite (Recommended)
+
+LiDAR-centric design, camera as optional enhancement:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    2D LiDAR (LaserScan)                     │
+│                           ↓                                 │
+│              ┌───────────────────────┐                      │
+│              │   LiDAR BEV Encoder   │  ~50K params         │
+│              │   (Conv + ConvGRU)    │                      │
+│              └───────────────────────┘                      │
+│                           ↓                                 │
+│                    [B, 64, 50, 60]                          │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+              ┌─────────────────────────┐
+              │  (Optional) Camera Hint │  ~30K params
+              └─────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    OccupancyNet                             │
+│              ┌───────────────────────┐                      │
+│              │   2.5D Occupancy      │  ~30K params         │
+│              │   + Flow + Risk       │                      │
+│              └───────────────────────┘                      │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    E2E Planner                              │
+│              ┌───────────────────────┐                      │
+│              │   Cost Volume +       │  ~40K params         │
+│              │   Trajectory Head     │                      │
+│              └───────────────────────┘                      │
+│                           ↓                                 │
+│              Waypoints + Steering + Speed                   │
+└─────────────────────────────────────────────────────────────┘
+
+Total: ~150K parameters | Target: <10ms on Orin Nano
+```
+
+### Classic Architecture
+
+Original camera + LiDAR fusion model:
 
 ```
 ┌──────────────┐     ┌──────────────┐
 │  CSI Camera  │     │   2D LiDAR   │
 │  320x240 RGB │     │ RPLIDAR/YD   │
 └──────┬───────┘     └──────┬───────┘
-       │                    │
-       ▼                    ▼
+       ↓                    ↓
 ┌──────────────┐     ┌──────────────┐
 │  CameraCNN   │     │  BEV Grid    │
-│  ~100K params│     │  240x200     │
-│  → 64-dim    │     │  5cm res     │
+│  ~100K params│     │  + ConvGRU   │
 └──────┬───────┘     └──────┬───────┘
-       │                    │
-       │             ┌──────▼───────┐
-       │             │   ConvGRU    │
-       │             │  ~50K params │
-       │             │  → 32-dim    │
-       │             └──────┬───────┘
-       │                    │
        └────────┬───────────┘
-                │
-        ┌───────▼───────┐
+                ↓
+        ┌───────────────┐
         │ Feature       │
         │ Attention     │
         └───────┬───────┘
-                │
-        ┌───────▼───────┐
+                ↓
+        ┌───────────────┐
         │ PlannerHead   │
         │ + SafetyLayer │
         └───────┬───────┘
-                │
-        ┌───────┴───────┐
-        ▼               ▼
-   ┌─────────┐    ┌─────────┐
-   │Steering │    │  Speed  │
-   │ ±30°    │    │ 0-2 m/s │
-   └─────────┘    └─────────┘
+                ↓
+        Steering + Speed
 ```
 
 ## Specifications
 
-| Component | Value |
-|-----------|-------|
-| Total Parameters | ~150K |
-| Inference Time | <15ms |
+| Component | V14-Lite | Classic |
+|-----------|----------|---------|
+| Parameters | ~150K | ~200K |
+| Inference | <10ms | <15ms |
+| Primary Sensor | LiDAR | Both |
+| Occupancy | 2.5D | BEV only |
+| Flow Prediction | Yes | No |
+
+| Shared Specs | Value |
+|--------------|-------|
 | Control Frequency | 20 Hz |
 | Camera Resolution | 320x240 |
-| BEV Grid Size | 240x200 |
-| Grid Resolution | 5cm |
+| BEV Grid | 240x200, 5cm |
 | LiDAR Range | X: [-2m, 10m], Y: [-5m, 5m] |
 
 ## Project Structure
 
 ```
 Alpamayo-for-orin-nano/
-├── models/                    # PyTorch model definitions
-│   ├── camera_cnn.py         # Camera feature extractor
-│   ├── lidar_temporal.py     # LiDAR BEV + ConvGRU encoder
-│   └── planner_head.py       # Sensor fusion + planner
-├── scripts/                   # ROS2 nodes
-│   ├── camera_feature_node.py
-│   ├── lidar_temporal_node.py
-│   ├── planner_node.py
-│   └── ...
-├── launch/                    # ROS2 launch files
-├── web/                       # Web dashboard (local)
-│   ├── fsd/                  # FSD-style dashboard
-│   └── index.html            # Main ROS2 dashboard
+├── models/
+│   ├── v14_lite.py           # V14-Lite E2E model (recommended)
+│   ├── v14_architecture.py   # Full V14 reference
+│   ├── camera_cnn.py         # Camera encoder
+│   ├── lidar_temporal.py     # LiDAR encoder
+│   └── planner_head.py       # Classic planner
+├── scripts/
+│   ├── train_v14.py          # Training script
+│   ├── export_onnx.py        # ONNX export
+│   ├── build_tensorrt.py     # TensorRT conversion
+│   └── inference_trt.py      # TensorRT inference
 ├── docs/                      # GitHub Pages
 │   ├── index.html            # Landing page
-│   ├── fsd/                  # Demo dashboard
-│   └── css/, js/             # Assets
-└── config/                    # Configuration files
+│   ├── fsd/index.html        # FSD dashboard
+│   ├── fsd/bev.html          # BEV/LiDAR viewer
+│   ├── css/                  # Stylesheets
+│   └── js/                   # JavaScript + libs
+├── web/                       # Local web dashboard
+├── launch/                    # ROS2 launch files
+└── config/                    # Configuration
 ```
 
 ## Requirements
 
 ### Hardware
 - Jetson Orin Nano (8GB recommended)
-- CSI Camera (e.g., IMX219, IMX477)
-- 2D LiDAR (RPLIDAR A1/A2/A3 or YDLidar X2/X4)
+- 2D LiDAR (RPLIDAR A1/A2/A3 or YDLidar X2/X4) - **Required**
+- CSI Camera (IMX219, IMX477) - **Optional**
 - RC Car chassis with servo steering
 
 ### Software
@@ -103,6 +142,7 @@ Alpamayo-for-orin-nano/
 - ROS2 Humble/Jazzy
 - Python 3.8+
 - PyTorch 2.0+
+- TensorRT (included with JetPack)
 
 ## Installation
 
@@ -123,105 +163,161 @@ colcon build --packages-select ros2_web_dashboard
 source install/setup.bash
 ```
 
-## Usage
+## Quick Start
 
-### Launch the system
+### 1. Training (Imitation Learning)
+
 ```bash
-# Full pipeline
-ros2 launch ros2_web_dashboard dashboard.launch.py
+# Online training with ROS2
+python3 scripts/train_v14.py --mode online
 
-# Jetson-optimized
+# Offline training from dataset
+python3 scripts/train_v14.py --mode offline --data_dir ./data --epochs 100
+```
+
+### 2. Export to ONNX
+
+```bash
+python3 scripts/export_onnx.py --combined
+# or
+python3 scripts/train_v14.py --export --checkpoint checkpoints/best.pth
+```
+
+### 3. Build TensorRT Engine (on Jetson)
+
+```bash
+python3 scripts/build_tensorrt.py --onnx_dir ./onnx_models --fp16
+```
+
+### 4. Run Inference
+
+```bash
+# Benchmark
+python3 scripts/inference_trt.py --benchmark
+
+# With ROS2
 ros2 launch ros2_web_dashboard jetson_orin.launch.py
 ```
 
-### Web Dashboard
-1. Open browser: `http://<jetson-ip>:8000`
-2. Or use the FSD dashboard: `http://<jetson-ip>:8000/fsd/`
-3. Enter ROS Bridge IP and port
-4. Click Connect
+### 5. Web Dashboard
 
-### Training (Imitation Learning)
-```bash
-# Start training node with teacher input
-ros2 run ros2_web_dashboard planner_node.py
-
-# Publish teacher signals
-ros2 topic pub /training/teacher geometry_msgs/Vector3 "{x: 0.1, y: 1.0, z: 0}"
-```
+Open browser: `http://<jetson-ip>:8000/fsd/`
 
 ## Model Details
 
-### CameraCNN (`models/camera_cnn.py`)
-- Input: RGB image (320x240)
-- Architecture: MobileNetV2-style Inverted Residuals + SE blocks
-- Output: 64-dimensional feature vector
-- Inference: ~5ms on Orin Nano
+### V14-Lite (`models/v14_lite.py`)
 
-### LiDARTemporalEncoder (`models/lidar_temporal.py`)
-- Input: 2-channel BEV grid (occupancy, intensity)
-- Grid: 240x200 cells, 5cm resolution
-- Temporal: ConvGRU for motion encoding
-- Output: 32-dimensional feature vector
-- Inference: ~3ms on Orin Nano
+Tesla FSD V14-inspired architecture:
 
-### PlannerHead (`models/planner_head.py`)
-- Input: Concatenated camera + LiDAR features
-- Architecture: MLP with cross-modal attention
-- Safety: Speed reduction on high steering/uncertainty
-- Output: Steering angle (rad) + Speed (m/s)
+- **LiDARBEVEncoder**: Main perception backbone
+  - Input: 2-channel BEV (occupancy + intensity)
+  - ConvGRU for temporal encoding
+  - Output: 64-dim spatial features
+
+- **CameraHintEncoder** (Optional): Semantic enhancement
+  - Lightweight CNN for hints only
+  - Gating mechanism for fusion
+
+- **OccupancyNet**: Unified perception
+  - 2.5D occupancy (4 height bins for RC car)
+  - Flow field for dynamic objects
+  - Risk/cost map for planning
+
+- **TrajectoryPlanner**: E2E planning
+  - Cost volume encoding
+  - Deterministic trajectory MLP
+  - Direct control outputs
+
+- **SafetyLayer**: Rule-based constraints
+  - Speed reduction on high risk
+  - Turn-based speed limiting
+  - Confidence-based modulation
+
+### Usage
+
+```python
+from models.v14_lite import AlpamayoV14Lite
+
+model = AlpamayoV14Lite(use_camera=True)
+
+# LiDAR only
+outputs = model(lidar_bev=bev)
+
+# With camera
+outputs = model(lidar_bev=bev, camera=img)
+
+# Outputs
+steering = outputs['steering']      # ±30° in radians
+speed = outputs['speed']            # 0-2 m/s
+waypoints = outputs['waypoints']    # [B, 8, 2] future positions
+risk = outputs['risk']              # [B, 1, 50, 60] risk map
+```
 
 ## ROS2 Topics
 
 ### Subscribed
 | Topic | Type | Description |
 |-------|------|-------------|
-| `/camera/image_raw` | sensor_msgs/Image | Camera input |
-| `/scan` | sensor_msgs/LaserScan | LiDAR input |
-| `/training/teacher` | geometry_msgs/Vector3 | Teacher signal |
+| `/scan` | sensor_msgs/LaserScan | LiDAR input (required) |
+| `/camera/image_raw` | sensor_msgs/Image | Camera input (optional) |
+| `/cmd_vel` | geometry_msgs/Twist | Teacher signal |
 
 ### Published
 | Topic | Type | Description |
 |-------|------|-------------|
 | `/planner/cmd` | geometry_msgs/Vector3 | Control output |
-| `/camera/feature` | std_msgs/Float32MultiArray | Camera features |
-| `/lidar/feature` | std_msgs/Float32MultiArray | LiDAR features |
+| `/planner/trajectory` | nav_msgs/Path | Planned trajectory |
+| `/planner/risk_map` | sensor_msgs/Image | Risk visualization |
 
 ## Configuration
 
-Edit `config/dashboard_params.yaml`:
+Edit `config/v14_params.yaml`:
 
 ```yaml
-camera_feature_node:
-  input_topic: /camera/image_raw
-  feature_dim: 64
-  diff_thresh: 10.0      # Change detection threshold
-  min_interval: 0.2      # Minimum CNN interval (sec)
+v14_lite:
+  use_camera: true
+  num_waypoints: 8
 
-lidar_temporal_node:
-  input_topic: /scan
-  feature_dim: 32
-  hidden_channels: 32
+lidar:
+  bev_width: 240
+  bev_height: 200
+  resolution: 0.05
+  x_range: [-2.0, 10.0]
+  y_range: [-5.0, 5.0]
 
-planner_node:
-  lidar_dim: 32
-  cam_dim: 64
-  publish_rate: 20.0
+safety:
+  max_steering: 0.52  # 30 degrees
+  max_speed: 2.0
+  min_obstacle_dist: 0.3
+
+training:
   learning_rate: 0.001
+  batch_size: 16
+  buffer_size: 10000
 ```
 
-## ONNX Export
+## Performance
 
-```python
-from models.planner_head import export_to_onnx
-from models.camera_cnn import CameraCNN
-from models.lidar_temporal import LiDARTemporalEncoder
+### Orin Nano Benchmarks
 
-camera = CameraCNN(feature_dim=64)
-lidar = LiDARTemporalEncoder(feature_dim=32)
-planner = PlannerHead(lidar_dim=32, cam_dim=64)
+| Model | CPU | GPU (FP32) | GPU (FP16) | TensorRT |
+|-------|-----|------------|------------|----------|
+| V14-Lite | ~80ms | ~15ms | ~8ms | ~5ms |
+| Classic | ~100ms | ~20ms | ~12ms | ~8ms |
 
-export_to_onnx(camera, lidar, planner, "alpamayo_pipeline.onnx")
-```
+Target: **20Hz (50ms)** - Both models easily meet requirement.
+
+## Comparison with Tesla FSD V14
+
+| Aspect | Tesla V14 | Alpamayo V14-Lite |
+|--------|-----------|-------------------|
+| Cameras | 8 | 1 (optional) |
+| LiDAR | None | Primary sensor |
+| Parameters | ~300-500M | ~150K |
+| Occupancy | Full 3D | 2.5D |
+| Flow | 3D voxel | 2D BEV |
+| Hardware | Custom NPU | Orin Nano |
+| Latency | 10-20ms | <10ms |
 
 ## License
 
@@ -229,6 +325,7 @@ MIT License
 
 ## Acknowledgments
 
+- [Tesla AI Day](https://www.tesla.com/AI) - V14 architecture inspiration
 - [Robot Web Tools](https://robotwebtools.github.io/)
 - [PyTorch](https://pytorch.org/)
 - [ROS2](https://docs.ros.org/)
