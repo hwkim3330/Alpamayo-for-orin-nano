@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpamayo BEV Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-dark: #0a0a0f;
+            --bg-card: rgba(20, 20, 30, 0.95);
+            --text-primary: #f0f0f5;
+            --text-secondary: #888;
+            --accent-blue: #3b82f6;
+            --accent-green: #22c55e;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            height: 100vh;
+            padding: 16px;
+            gap: 16px;
+        }
+
+        .main-view {
+            display: grid;
+            grid-template-rows: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .view-container {
+            background: var(--bg-card);
+            border-radius: 16px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .view-title {
+            position: absolute;
+            top: 12px;
+            left: 16px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            z-index: 10;
+        }
+
+        #lidarCanvas, #lidar3dContainer {
+            width: 100%;
+            height: 100%;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 20px;
+        }
+
+        .card-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        /* Connection */
+        .connection-form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-field {
+            flex: 1;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .input-field.port {
+            width: 80px;
+            flex: none;
+        }
+
+        .connect-btn {
+            padding: 12px;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .connect-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
+        }
+
+        .connect-btn.connected {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+        }
+
+        /* Status */
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .status-row:last-child {
+            border-bottom: none;
+        }
+
+        .status-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .status-value {
+            font-size: 13px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-dot.connected { background: var(--accent-green); }
+        .status-dot.disconnected { background: #ef4444; }
+
+        /* Controls */
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .control-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .control-value {
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            width: 50px;
+            text-align: right;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .color-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .color-btn {
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .color-btn:hover, .color-btn.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+
+        /* BEV Grid Info */
+        .bev-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .bev-stat {
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .bev-stat-value {
+            font-size: 18px;
+            font-weight: 500;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .bev-stat-label {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Demo button */
+        .demo-btn {
+            width: 100%;
+            padding: 10px;
+            background: rgba(168, 85, 247, 0.2);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            border-radius: 8px;
+            color: #a855f7;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .demo-btn:hover {
+            background: rgba(168, 85, 247, 0.3);
+        }
+
+        @media (max-width: 900px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr auto;
+            }
+            .main-view {
+                grid-template-rows: 1fr;
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="main-view">
+            <div class="view-container">
+                <div class="view-title">LiDAR BEV (2D)</div>
+                <canvas id="lidarCanvas"></canvas>
+            </div>
+            <div class="view-container">
+                <div class="view-title">LiDAR 3D View</div>
+                <div id="lidar3dContainer"></div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <!-- Connection -->
+            <div class="card">
+                <div class="card-title">Connection</div>
+                <div class="connection-form">
+                    <div class="input-row">
+                        <input type="text" class="input-field" id="rosHost" placeholder="192.168.4.1">
+                        <input type="text" class="input-field port" id="rosPort" value="9090">
+                    </div>
+                    <button class="connect-btn" id="connectBtn" onclick="toggleConnection()">Connect</button>
+                    <button class="demo-btn" onclick="startDemo()">Demo Mode</button>
+                </div>
+            </div>
+
+            <!-- Status -->
+            <div class="card">
+                <div class="card-title">Status</div>
+                <div class="status-row">
+                    <span class="status-label">ROS Bridge</span>
+                    <span class="status-value">
+                        <span class="status-dot disconnected" id="statusDot"></span>
+                        <span id="statusText">Disconnected</span>
+                    </span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">LiDAR Topic</span>
+                    <span class="status-value" id="lidarTopic">/scan</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Scan Rate</span>
+                    <span class="status-value"><span id="scanRate">--</span> Hz</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Points</span>
+                    <span class="status-value" id="pointCount">--</span>
+                </div>
+            </div>
+
+            <!-- BEV Grid -->
+            <div class="card">
+                <div class="card-title">BEV Grid (Model Input)</div>
+                <div class="bev-info">
+                    <div class="bev-stat">
+                        <div class="bev-stat-value">240x200</div>
+                        <div class="bev-stat-label">Grid Size</div>
+                    </div>
+                    <div class="bev-stat">
+                        <div class="bev-stat-value">5cm</div>
+                        <div class="bev-stat-label">Resolution</div>
+                    </div>
+                    <div class="bev-stat">
+                        <div class="bev-stat-value" id="occupiedCells">--</div>
+                        <div class="bev-stat-label">Occupied</div>
+                    </div>
+                    <div class="bev-stat">
+                        <div class="bev-stat-value" id="gridFps">--</div>
+                        <div class="bev-stat-label">FPS</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="card">
+                <div class="card-title">Visualization</div>
+                <div class="control-row">
+                    <span class="control-label">Point Size</span>
+                    <span class="control-value" id="pointSizeValue">2</span>
+                </div>
+                <input type="range" id="pointSize" min="1" max="5" value="2" oninput="updatePointSize()">
+
+                <div class="control-row" style="margin-top: 16px;">
+                    <span class="control-label">Color Scheme</span>
+                </div>
+                <div class="color-buttons">
+                    <button class="color-btn active" onclick="setColorScheme('distance')">Distance</button>
+                    <button class="color-btn" onclick="setColorScheme('intensity')">Intensity</button>
+                    <button class="color-btn" onclick="setColorScheme('green')">Green</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/lib/roslib.min.js"></script>
+    <script src="../js/lib/three.min.js"></script>
+    <script src="../js/lidar-viewer.js"></script>
+    <script>
+        // Initialize viewers
+        const lidar2D = new LiDARViewer('lidarCanvas', {
+            colorScheme: 'distance'
+        });
+
+        const lidar3D = new LiDAR3DViewer('lidar3dContainer');
+
+        // ROS connection
+        let ros = null;
+        let scanTopic = null;
+        let connected = false;
+        let scanCount = 0;
+        let lastScanTime = Date.now();
+
+        function toggleConnection() {
+            if (connected) {
+                disconnect();
+            } else {
+                connect();
+            }
+        }
+
+        function connect() {
+            const host = document.getElementById('rosHost').value || 'localhost';
+            const port = document.getElementById('rosPort').value || '9090';
+
+            ros = new ROSLIB.Ros({ url: `ws://${host}:${port}` });
+
+            ros.on('connection', () => {
+                connected = true;
+                updateStatus(true);
+                subscribeLiDAR();
+            });
+
+            ros.on('close', () => {
+                connected = false;
+                updateStatus(false);
+            });
+
+            ros.on('error', (error) => {
+                console.error('ROS error:', error);
+            });
+        }
+
+        function disconnect() {
+            if (ros) {
+                ros.close();
+            }
+            connected = false;
+            updateStatus(false);
+        }
+
+        function updateStatus(isConnected) {
+            document.getElementById('statusDot').className = 'status-dot ' + (isConnected ? 'connected' : 'disconnected');
+            document.getElementById('statusText').textContent = isConnected ? 'Connected' : 'Disconnected';
+            document.getElementById('connectBtn').textContent = isConnected ? 'Disconnect' : 'Connect';
+            document.getElementById('connectBtn').className = 'connect-btn' + (isConnected ? ' connected' : '');
+        }
+
+        function subscribeLiDAR() {
+            scanTopic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/scan',
+                messageType: 'sensor_msgs/LaserScan'
+            });
+
+            scanTopic.subscribe((scan) => {
+                // Process and render
+                const points = lidar2D.processLaserScan(scan);
+                lidar2D.render();
+
+                lidar3D.updatePoints(scan);
+
+                // Update stats
+                scanCount++;
+                const now = Date.now();
+                if (now - lastScanTime >= 1000) {
+                    document.getElementById('scanRate').textContent = scanCount;
+                    document.getElementById('gridFps').textContent = scanCount;
+                    scanCount = 0;
+                    lastScanTime = now;
+                }
+
+                document.getElementById('pointCount').textContent = points.length;
+
+                // Count occupied cells
+                const bevGrid = lidar2D.getBEVGrid();
+                let occupied = 0;
+                for (let i = 0; i < bevGrid.occupancy.length; i++) {
+                    if (bevGrid.occupancy[i] > 0.1) occupied++;
+                }
+                document.getElementById('occupiedCells').textContent = occupied;
+            });
+        }
+
+        function updatePointSize() {
+            const size = parseInt(document.getElementById('pointSize').value);
+            document.getElementById('pointSizeValue').textContent = size;
+            lidar2D.config.pointSize = size;
+        }
+
+        function setColorScheme(scheme) {
+            lidar2D.config.colorScheme = scheme;
+
+            // Update buttons
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.toLowerCase() === scheme) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        // Demo mode with simulated LiDAR
+        let demoInterval = null;
+
+        function startDemo() {
+            if (demoInterval) {
+                clearInterval(demoInterval);
+                demoInterval = null;
+                return;
+            }
+
+            updateStatus(true);
+            document.getElementById('statusText').textContent = 'Demo Mode';
+
+            let angle = 0;
+
+            demoInterval = setInterval(() => {
+                // Generate simulated scan
+                const numPoints = 360;
+                const ranges = [];
+                const intensities = [];
+
+                for (let i = 0; i < numPoints; i++) {
+                    const a = (i / numPoints) * Math.PI * 2;
+
+                    // Create some objects
+                    let range = 10;
+
+                    // Moving object
+                    const objAngle = angle + Math.PI / 4;
+                    const objDist = 4 + Math.sin(angle * 0.5) * 2;
+                    if (Math.abs(a - objAngle) < 0.2) {
+                        range = objDist;
+                    }
+
+                    // Static wall
+                    if (a > Math.PI * 0.4 && a < Math.PI * 0.6) {
+                        range = 6;
+                    }
+
+                    // Another object
+                    const obj2Angle = -angle * 0.7 + Math.PI;
+                    if (Math.abs(a - obj2Angle) < 0.15) {
+                        range = 3 + Math.cos(angle) * 0.5;
+                    }
+
+                    // Add noise
+                    range += (Math.random() - 0.5) * 0.1;
+                    range = Math.max(0.5, Math.min(12, range));
+
+                    ranges.push(range);
+                    intensities.push(0.3 + Math.random() * 0.7);
+                }
+
+                const fakeScan = {
+                    angle_min: 0,
+                    angle_max: Math.PI * 2,
+                    angle_increment: (Math.PI * 2) / numPoints,
+                    ranges: ranges,
+                    intensities: intensities
+                };
+
+                const points = lidar2D.processLaserScan(fakeScan);
+                lidar2D.render();
+                lidar3D.updatePoints(fakeScan);
+
+                document.getElementById('pointCount').textContent = points.length;
+                document.getElementById('scanRate').textContent = '10';
+                document.getElementById('gridFps').textContent = '10';
+
+                const bevGrid = lidar2D.getBEVGrid();
+                let occupied = 0;
+                for (let i = 0; i < bevGrid.occupancy.length; i++) {
+                    if (bevGrid.occupancy[i] > 0.1) occupied++;
+                }
+                document.getElementById('occupiedCells').textContent = occupied;
+
+                angle += 0.05;
+            }, 100);
+        }
+
+        // Initial render
+        lidar2D.render();
+    </script>
+</body>
+</html>
