@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpamayo FSD - Tesla V14 Style BEV</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-dark: #000000;
+            --bg-panel: rgba(15, 15, 20, 0.95);
+            --text-primary: #ffffff;
+            --text-secondary: #888;
+            --accent-blue: #3b82f6;
+            --accent-green: #22c55e;
+            --accent-red: #ef4444;
+            --accent-yellow: #eab308;
+            --accent-cyan: #06b6d4;
+            --accent-magenta: #d946ef;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            height: 100vh;
+        }
+
+        /* Main BEV View */
+        .main-view {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+
+        #bevCanvas {
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        /* Overlay Info */
+        .overlay-info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .info-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .info-badge.wasm {
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        .info-badge.risk {
+            border: 1px solid var(--accent-red);
+            color: var(--accent-red);
+        }
+
+        .info-badge.safe {
+            border: 1px solid var(--accent-green);
+            color: var(--accent-green);
+        }
+
+        /* Speed Display */
+        .speed-display {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            text-align: left;
+        }
+
+        .speed-value {
+            font-size: 72px;
+            font-weight: 700;
+            line-height: 1;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .speed-unit {
+            font-size: 18px;
+            color: var(--text-secondary);
+            margin-left: 8px;
+        }
+
+        /* Ego Vehicle Indicator */
+        .ego-indicator {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 60px;
+        }
+
+        .ego-indicator svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: var(--bg-panel);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .panel-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+
+        /* Connection */
+        .connection-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-field {
+            flex: 1;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .input-field.port {
+            width: 70px;
+            flex: none;
+        }
+
+        .btn {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn-primary.connected {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+        }
+
+        .btn-demo {
+            background: rgba(168, 85, 247, 0.2);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            color: #a855f7;
+        }
+
+        .btn-demo:hover {
+            background: rgba(168, 85, 247, 0.3);
+        }
+
+        /* Toggle Buttons */
+        .toggle-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .toggle-btn {
+            padding: 8px 14px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .toggle-btn.active {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .toggle-btn.risk.active {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .toggle-btn.flow.active {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            background: rgba(6, 182, 212, 0.1);
+        }
+
+        .toggle-btn.trajectory.active {
+            border-color: var(--accent-magenta);
+            color: var(--accent-magenta);
+            background: rgba(217, 70, 239, 0.1);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Performance */
+        .perf-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .perf-row:last-child {
+            border-bottom: none;
+        }
+
+        .perf-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .perf-value {
+            font-size: 13px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 11px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        /* Status Indicator */
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-dot.on { background: var(--accent-green); }
+        .status-dot.off { background: var(--accent-red); }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr auto;
+            }
+
+            .sidebar {
+                max-height: 40vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="main-view">
+            <canvas id="bevCanvas" width="480" height="400"></canvas>
+
+            <div class="overlay-info">
+                <div class="info-badge wasm">
+                    <span class="status-dot off" id="wasmDot"></span>
+                    <span id="wasmStatus">WASM Loading...</span>
+                </div>
+                <div class="info-badge" id="riskBadge">
+                    <span>MAX RISK: </span>
+                    <span id="maxRisk">0.00</span>
+                </div>
+            </div>
+
+            <div class="speed-display">
+                <span class="speed-value" id="speedValue">0</span>
+                <span class="speed-unit">m/s</span>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+                    Frame: <span id="frameId">0</span>
+                </div>
+            </div>
+
+            <!-- Ego Vehicle SVG -->
+            <div class="ego-indicator">
+                <svg viewBox="0 0 40 60" fill="none">
+                    <path d="M20 0 L35 50 L20 45 L5 50 Z" fill="#3b82f6" opacity="0.9"/>
+                    <circle cx="20" cy="30" r="4" fill="white" opacity="0.8"/>
+                </svg>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <!-- Connection -->
+            <div class="panel">
+                <div class="panel-title">Connection</div>
+                <div class="connection-form">
+                    <div class="input-row">
+                        <input type="text" class="input-field" id="rosHost" placeholder="192.168.4.1">
+                        <input type="text" class="input-field port" id="rosPort" value="9090">
+                    </div>
+                    <button class="btn btn-primary" id="connectBtn" onclick="toggleConnection()">Connect</button>
+                    <button class="btn btn-demo" onclick="startDemo()">Demo Mode</button>
+                </div>
+            </div>
+
+            <!-- Visualization Toggles -->
+            <div class="panel">
+                <div class="panel-title">Visualization Layers</div>
+                <div class="toggle-group">
+                    <button class="toggle-btn risk active" id="toggleRisk" onclick="toggleLayer('risk')">Risk Map</button>
+                    <button class="toggle-btn flow" id="toggleFlow" onclick="toggleLayer('flow')">Flow</button>
+                    <button class="toggle-btn trajectory active" id="toggleTrajectory" onclick="toggleLayer('trajectory')">Trajectory</button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="panel">
+                <div class="panel-title">BEV Statistics</div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="pointCount">--</div>
+                        <div class="stat-label">Points</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="occupiedCells">--</div>
+                        <div class="stat-label">Occupied</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">240x200</div>
+                        <div class="stat-label">Grid Size</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">5cm</div>
+                        <div class="stat-label">Resolution</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance -->
+            <div class="panel">
+                <div class="panel-title">Performance</div>
+                <div class="perf-row">
+                    <span class="perf-label">Process Time</span>
+                    <span class="perf-value"><span id="processTime">--</span> ms</span>
+                </div>
+                <div class="perf-row">
+                    <span class="perf-label">Render Time</span>
+                    <span class="perf-value"><span id="renderTime">--</span> ms</span>
+                </div>
+                <div class="perf-row">
+                    <span class="perf-label">Frame Rate</span>
+                    <span class="perf-value"><span id="frameRate">--</span> FPS</span>
+                </div>
+                <div class="perf-row">
+                    <span class="perf-label">Total Pipeline</span>
+                    <span class="perf-value"><span id="totalTime">--</span> ms</span>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="panel">
+                <div class="panel-title">Legend</div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: linear-gradient(90deg, #22c55e, #eab308, #ef4444);"></div>
+                        <span>Risk Level (Green = Safe, Red = Danger)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #06b6d4;"></div>
+                        <span>Flow Vectors (Motion Direction)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #d946ef;"></div>
+                        <span>Planned Trajectory</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/lib/roslib.min.js"></script>
+    <script type="module">
+        // WASM module
+        let wasmModule = null;
+        let pipeline = null;
+        let isWasmReady = false;
+
+        // Visualization settings
+        let showRisk = true;
+        let showFlow = false;
+        let showTrajectory = true;
+
+        // Canvas
+        const canvas = document.getElementById('bevCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Performance tracking
+        let frameCount = 0;
+        let lastFpsTime = Date.now();
+        let currentFps = 0;
+
+        // ROS
+        let ros = null;
+        let connected = false;
+        let demoInterval = null;
+
+        // Initialize WASM
+        async function initWasm() {
+            try {
+                wasmModule = await import('../js/wasm/alpamayo_wasm.js');
+                await wasmModule.default();
+
+                pipeline = new wasmModule.BEVPipeline();
+
+                isWasmReady = true;
+                document.getElementById('wasmDot').className = 'status-dot on';
+                document.getElementById('wasmStatus').textContent = 'WASM Pipeline Active';
+
+                console.log(`[WASM] BEVPipeline initialized: ${pipeline.width()}x${pipeline.height()}`);
+
+                // Initial render
+                renderFrame();
+            } catch (error) {
+                console.error('[WASM] Failed to load:', error);
+                document.getElementById('wasmStatus').textContent = 'WASM Failed';
+            }
+        }
+
+        // Process and render a single frame
+        function processFrame(scan) {
+            if (!isWasmReady || !pipeline) return;
+
+            const startProcess = performance.now();
+
+            // Convert to Float32Array
+            const ranges = new Float32Array(scan.ranges);
+            const intensities = scan.intensities
+                ? new Float32Array(scan.intensities)
+                : new Float32Array(0);
+
+            // Process through pipeline
+            const result = pipeline.process_frame(
+                ranges,
+                intensities,
+                scan.angle_min,
+                scan.angle_increment
+            );
+
+            const processTime = performance.now() - startProcess;
+
+            // Render
+            const startRender = performance.now();
+            renderFrame();
+            const renderTime = performance.now() - startRender;
+
+            // Update stats
+            updateStats(result, processTime, renderTime);
+        }
+
+        // Render the BEV visualization
+        function renderFrame() {
+            if (!isWasmReady || !pipeline) return;
+
+            // Get WASM-rendered image
+            const imageData = pipeline.render_full(showFlow, showRisk, showTrajectory);
+
+            // Create ImageData and put to canvas
+            const width = pipeline.width();
+            const height = pipeline.height();
+
+            // Scale canvas to 2x for better visibility
+            canvas.width = width * 2;
+            canvas.height = height * 2;
+
+            // Create temp canvas at original size
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            const imgData = new ImageData(
+                new Uint8ClampedArray(imageData.buffer),
+                width,
+                height
+            );
+            tempCtx.putImageData(imgData, 0, 0);
+
+            // Scale up with pixelated rendering
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(tempCanvas, 0, 0, canvas.width, canvas.height);
+
+            // Draw ego vehicle marker
+            drawEgoMarker();
+
+            // Draw distance rings
+            drawDistanceRings();
+        }
+
+        function drawEgoMarker() {
+            const centerX = canvas.width / 2;
+            const bottomY = canvas.height - 40;
+
+            ctx.save();
+            ctx.fillStyle = '#3b82f6';
+            ctx.shadowColor = '#3b82f6';
+            ctx.shadowBlur = 15;
+
+            ctx.beginPath();
+            ctx.moveTo(centerX, bottomY - 20);
+            ctx.lineTo(centerX - 10, bottomY + 10);
+            ctx.lineTo(centerX + 10, bottomY + 10);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawDistanceRings() {
+            const centerX = canvas.width / 2;
+            const bottomY = canvas.height - 40;
+            const scale = canvas.height / 10;  // Approximate scale
+
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+
+            [2, 5, 8].forEach(dist => {
+                const radius = dist * scale * 0.4;
+                ctx.beginPath();
+                ctx.arc(centerX, bottomY, radius, Math.PI, 0);
+                ctx.stroke();
+
+                // Label
+                ctx.fillStyle = 'rgba(136, 136, 136, 0.5)';
+                ctx.font = '10px Inter';
+                ctx.fillText(`${dist}m`, centerX + radius + 5, bottomY - 5);
+            });
+
+            ctx.setLineDash([]);
+        }
+
+        function updateStats(result, processTime, renderTime) {
+            document.getElementById('pointCount').textContent = result.point_count;
+            document.getElementById('occupiedCells').textContent = result.occupied_cells;
+            document.getElementById('processTime').textContent = processTime.toFixed(2);
+            document.getElementById('renderTime').textContent = renderTime.toFixed(2);
+            document.getElementById('totalTime').textContent = (processTime + renderTime).toFixed(2);
+            document.getElementById('frameId').textContent = result.frame_id;
+
+            // Update risk badge
+            const maxRisk = result.max_risk;
+            document.getElementById('maxRisk').textContent = maxRisk.toFixed(2);
+            const riskBadge = document.getElementById('riskBadge');
+            if (maxRisk > 0.7) {
+                riskBadge.className = 'info-badge risk';
+            } else if (maxRisk > 0.3) {
+                riskBadge.className = 'info-badge';
+                riskBadge.style.borderColor = 'var(--accent-yellow)';
+                riskBadge.style.color = 'var(--accent-yellow)';
+            } else {
+                riskBadge.className = 'info-badge safe';
+            }
+
+            // FPS calculation
+            frameCount++;
+            const now = Date.now();
+            if (now - lastFpsTime >= 1000) {
+                currentFps = frameCount;
+                frameCount = 0;
+                lastFpsTime = now;
+                document.getElementById('frameRate').textContent = currentFps;
+            }
+        }
+
+        // Toggle visualization layers
+        window.toggleLayer = function(layer) {
+            const btn = document.getElementById('toggle' + layer.charAt(0).toUpperCase() + layer.slice(1));
+
+            switch (layer) {
+                case 'risk':
+                    showRisk = !showRisk;
+                    break;
+                case 'flow':
+                    showFlow = !showFlow;
+                    break;
+                case 'trajectory':
+                    showTrajectory = !showTrajectory;
+                    break;
+            }
+
+            btn.classList.toggle('active');
+            renderFrame();
+        }
+
+        // ROS Connection
+        window.toggleConnection = function() {
+            if (connected) {
+                disconnect();
+            } else {
+                connect();
+            }
+        }
+
+        function connect() {
+            const host = document.getElementById('rosHost').value || 'localhost';
+            const port = document.getElementById('rosPort').value || '9090';
+
+            ros = new ROSLIB.Ros({ url: `ws://${host}:${port}` });
+
+            ros.on('connection', () => {
+                connected = true;
+                updateConnectionStatus(true);
+                subscribeLiDAR();
+            });
+
+            ros.on('close', () => {
+                connected = false;
+                updateConnectionStatus(false);
+            });
+        }
+
+        function disconnect() {
+            if (ros) ros.close();
+            connected = false;
+            updateConnectionStatus(false);
+        }
+
+        function updateConnectionStatus(isConnected) {
+            const btn = document.getElementById('connectBtn');
+            btn.textContent = isConnected ? 'Disconnect' : 'Connect';
+            btn.classList.toggle('connected', isConnected);
+        }
+
+        function subscribeLiDAR() {
+            const topic = new ROSLIB.Topic({
+                ros: ros,
+                name: '/scan',
+                messageType: 'sensor_msgs/LaserScan'
+            });
+
+            topic.subscribe((scan) => {
+                processFrame(scan);
+            });
+        }
+
+        // Demo mode
+        window.startDemo = function() {
+            if (demoInterval) {
+                clearInterval(demoInterval);
+                demoInterval = null;
+                document.getElementById('speedValue').textContent = '0';
+                return;
+            }
+
+            let angle = 0;
+            let speed = 0;
+
+            demoInterval = setInterval(() => {
+                // Generate complex simulated scan
+                const numPoints = 720;
+                const ranges = [];
+                const intensities = [];
+
+                for (let i = 0; i < numPoints; i++) {
+                    const a = (i / numPoints) * Math.PI * 2;
+                    let range = 10;
+
+                    // Moving objects
+                    const obj1Angle = angle + Math.PI / 4;
+                    const obj1Dist = 4 + Math.sin(angle * 0.5) * 2;
+                    if (Math.abs(a - obj1Angle) < 0.15) {
+                        range = obj1Dist;
+                    }
+
+                    const obj2Angle = -angle * 0.7 + Math.PI;
+                    if (Math.abs(a - obj2Angle) < 0.12) {
+                        range = 3 + Math.cos(angle) * 0.5;
+                    }
+
+                    // Static walls
+                    if (a > Math.PI * 0.35 && a < Math.PI * 0.65) {
+                        range = 6 + Math.sin(a * 5) * 0.3;
+                    }
+
+                    // Multiple dynamic obstacles
+                    for (let j = 0; j < 4; j++) {
+                        const obsAngle = (j / 4) * Math.PI * 2 + angle * (0.2 + j * 0.1);
+                        const obsDist = 2.5 + j * 0.8;
+                        if (Math.abs(a - obsAngle) < 0.08) {
+                            range = Math.min(range, obsDist);
+                        }
+                    }
+
+                    // Noise
+                    range += (Math.random() - 0.5) * 0.08;
+                    range = Math.max(0.5, Math.min(12, range));
+
+                    ranges.push(range);
+                    intensities.push(0.3 + Math.random() * 0.7);
+                }
+
+                const fakeScan = {
+                    angle_min: 0,
+                    angle_max: Math.PI * 2,
+                    angle_increment: (Math.PI * 2) / numPoints,
+                    ranges: ranges,
+                    intensities: intensities
+                };
+
+                processFrame(fakeScan);
+
+                // Update speed display
+                speed = 0.8 + Math.sin(angle * 0.3) * 0.3;
+                document.getElementById('speedValue').textContent = speed.toFixed(1);
+
+                angle += 0.08;
+            }, 50);  // 20 FPS
+        }
+
+        // Initialize
+        initWasm();
+    </script>
+</body>
+</html>

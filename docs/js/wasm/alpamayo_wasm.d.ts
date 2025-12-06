@@ -9,6 +9,45 @@ export class BEVConfig {
   set_range(x_min: number, x_max: number, y_min: number, y_max: number): void;
 }
 
+export class BEVPipeline {
+  free(): void;
+  [Symbol.dispose](): void;
+  constructor();
+  /**
+   * Process complete pipeline: scan -> occupancy -> flow -> risk -> trajectory
+   */
+  process_frame(ranges: Float32Array, intensities: Float32Array, angle_min: number, angle_increment: number): BEVResult;
+  /**
+   * Render complete visualization with all layers
+   */
+  render_full(show_flow: boolean, show_risk: boolean, show_trajectory: boolean): Uint8ClampedArray;
+  /**
+   * Get trajectory as Float32Array
+   */
+  get_trajectory(): Float32Array;
+  /**
+   * Get risk map as Float32Array
+   */
+  get_risk_map(): Float32Array;
+  /**
+   * Get flow as Float32Array [flow_x, flow_y]
+   */
+  get_flow(): Float32Array;
+  width(): number;
+  height(): number;
+  clear(): void;
+}
+
+export class BEVResult {
+  private constructor();
+  free(): void;
+  [Symbol.dispose](): void;
+  point_count: number;
+  occupied_cells: number;
+  max_risk: number;
+  frame_id: number;
+}
+
 export class FlowEstimator {
   free(): void;
   [Symbol.dispose](): void;
@@ -94,14 +133,33 @@ export interface InitOutput {
   readonly lidarprocessor_render_to_rgba: (a: number, b: number) => any;
   readonly lidarprocessor_count_occupied: (a: number) => number;
   readonly lidarprocessor_clear: (a: number) => void;
-  readonly lidarprocessor_width: (a: number) => number;
-  readonly lidarprocessor_height: (a: number) => number;
   readonly __wbg_flowestimator_free: (a: number, b: number) => void;
   readonly flowestimator_new: (a: number, b: number) => number;
   readonly flowestimator_compute_flow: (a: number, b: any) => any;
   readonly compute_risk_map: (a: any, b: any, c: any, d: number, e: number) => any;
   readonly plan_trajectory: (a: any, b: number, c: number, d: number) => any;
+  readonly __wbg_bevpipeline_free: (a: number, b: number) => void;
+  readonly bevpipeline_new: () => number;
+  readonly bevpipeline_process_frame: (a: number, b: any, c: any, d: number, e: number) => number;
+  readonly bevpipeline_render_full: (a: number, b: number, c: number, d: number) => any;
+  readonly bevpipeline_get_trajectory: (a: number) => any;
+  readonly bevpipeline_get_risk_map: (a: number) => any;
+  readonly bevpipeline_get_flow: (a: number) => any;
+  readonly bevpipeline_width: (a: number) => number;
+  readonly bevpipeline_height: (a: number) => number;
+  readonly bevpipeline_clear: (a: number) => void;
+  readonly __wbg_bevresult_free: (a: number, b: number) => void;
+  readonly __wbg_get_bevresult_point_count: (a: number) => number;
+  readonly __wbg_set_bevresult_point_count: (a: number, b: number) => void;
+  readonly __wbg_get_bevresult_occupied_cells: (a: number) => number;
+  readonly __wbg_set_bevresult_occupied_cells: (a: number, b: number) => void;
+  readonly __wbg_get_bevresult_max_risk: (a: number) => number;
+  readonly __wbg_set_bevresult_max_risk: (a: number, b: number) => void;
+  readonly __wbg_get_bevresult_frame_id: (a: number) => number;
+  readonly __wbg_set_bevresult_frame_id: (a: number, b: number) => void;
   readonly init: () => void;
+  readonly lidarprocessor_width: (a: number) => number;
+  readonly lidarprocessor_height: (a: number) => number;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

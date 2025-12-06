@@ -97,6 +97,14 @@ const BEVConfigFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_bevconfig_free(ptr >>> 0, 1));
 
+const BEVPipelineFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_bevpipeline_free(ptr >>> 0, 1));
+
+const BEVResultFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_bevresult_free(ptr >>> 0, 1));
+
 const FlowEstimatorFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_flowestimator_free(ptr >>> 0, 1));
@@ -143,6 +151,169 @@ export class BEVConfig {
     }
 }
 if (Symbol.dispose) BEVConfig.prototype[Symbol.dispose] = BEVConfig.prototype.free;
+
+/**
+ * Full BEV Pipeline - Combines all processing stages
+ */
+export class BEVPipeline {
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        BEVPipelineFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_bevpipeline_free(ptr, 0);
+    }
+    constructor() {
+        const ret = wasm.bevpipeline_new();
+        this.__wbg_ptr = ret >>> 0;
+        BEVPipelineFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
+     * Process complete pipeline: scan -> occupancy -> flow -> risk -> trajectory
+     * @param {Float32Array} ranges
+     * @param {Float32Array} intensities
+     * @param {number} angle_min
+     * @param {number} angle_increment
+     * @returns {BEVResult}
+     */
+    process_frame(ranges, intensities, angle_min, angle_increment) {
+        const ret = wasm.bevpipeline_process_frame(this.__wbg_ptr, ranges, intensities, angle_min, angle_increment);
+        return BEVResult.__wrap(ret);
+    }
+    /**
+     * Render complete visualization with all layers
+     * @param {boolean} show_flow
+     * @param {boolean} show_risk
+     * @param {boolean} show_trajectory
+     * @returns {Uint8ClampedArray}
+     */
+    render_full(show_flow, show_risk, show_trajectory) {
+        const ret = wasm.bevpipeline_render_full(this.__wbg_ptr, show_flow, show_risk, show_trajectory);
+        return ret;
+    }
+    /**
+     * Get trajectory as Float32Array
+     * @returns {Float32Array}
+     */
+    get_trajectory() {
+        const ret = wasm.bevpipeline_get_trajectory(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * Get risk map as Float32Array
+     * @returns {Float32Array}
+     */
+    get_risk_map() {
+        const ret = wasm.bevpipeline_get_risk_map(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * Get flow as Float32Array [flow_x, flow_y]
+     * @returns {Float32Array}
+     */
+    get_flow() {
+        const ret = wasm.bevpipeline_get_flow(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    width() {
+        const ret = wasm.bevpipeline_width(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    height() {
+        const ret = wasm.bevpipeline_height(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    clear() {
+        wasm.bevpipeline_clear(this.__wbg_ptr);
+    }
+}
+if (Symbol.dispose) BEVPipeline.prototype[Symbol.dispose] = BEVPipeline.prototype.free;
+
+/**
+ * Result from BEV processing
+ */
+export class BEVResult {
+    static __wrap(ptr) {
+        ptr = ptr >>> 0;
+        const obj = Object.create(BEVResult.prototype);
+        obj.__wbg_ptr = ptr;
+        BEVResultFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        BEVResultFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_bevresult_free(ptr, 0);
+    }
+    /**
+     * @returns {number}
+     */
+    get point_count() {
+        const ret = wasm.__wbg_get_bevresult_point_count(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @param {number} arg0
+     */
+    set point_count(arg0) {
+        wasm.__wbg_set_bevresult_point_count(this.__wbg_ptr, arg0);
+    }
+    /**
+     * @returns {number}
+     */
+    get occupied_cells() {
+        const ret = wasm.__wbg_get_bevresult_occupied_cells(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @param {number} arg0
+     */
+    set occupied_cells(arg0) {
+        wasm.__wbg_set_bevresult_occupied_cells(this.__wbg_ptr, arg0);
+    }
+    /**
+     * @returns {number}
+     */
+    get max_risk() {
+        const ret = wasm.__wbg_get_bevresult_max_risk(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @param {number} arg0
+     */
+    set max_risk(arg0) {
+        wasm.__wbg_set_bevresult_max_risk(this.__wbg_ptr, arg0);
+    }
+    /**
+     * @returns {number}
+     */
+    get frame_id() {
+        const ret = wasm.__wbg_get_bevresult_frame_id(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @param {number} arg0
+     */
+    set frame_id(arg0) {
+        wasm.__wbg_set_bevresult_frame_id(this.__wbg_ptr, arg0);
+    }
+}
+if (Symbol.dispose) BEVResult.prototype[Symbol.dispose] = BEVResult.prototype.free;
 
 /**
  * Flow field computation for motion estimation
@@ -290,14 +461,14 @@ export class LiDARProcessor {
      * @returns {number}
      */
     width() {
-        const ret = wasm.lidarprocessor_width(this.__wbg_ptr);
+        const ret = wasm.bevpipeline_width(this.__wbg_ptr);
         return ret >>> 0;
     }
     /**
      * @returns {number}
      */
     height() {
-        const ret = wasm.lidarprocessor_height(this.__wbg_ptr);
+        const ret = wasm.bevpipeline_height(this.__wbg_ptr);
         return ret >>> 0;
     }
 }
