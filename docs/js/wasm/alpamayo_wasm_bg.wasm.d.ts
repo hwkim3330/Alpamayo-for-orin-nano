@@ -1,0 +1,31 @@
+/* tslint:disable */
+/* eslint-disable */
+export const memory: WebAssembly.Memory;
+export const __wbg_bevconfig_free: (a: number, b: number) => void;
+export const bevconfig_new: () => number;
+export const bevconfig_set_grid_size: (a: number, b: number, c: number) => void;
+export const bevconfig_set_range: (a: number, b: number, c: number, d: number, e: number) => void;
+export const __wbg_lidarprocessor_free: (a: number, b: number) => void;
+export const lidarprocessor_new: () => number;
+export const lidarprocessor_with_config: (a: number) => number;
+export const lidarprocessor_set_decay: (a: number, b: number) => void;
+export const lidarprocessor_process_scan: (a: number, b: any, c: any, d: number, e: number) => number;
+export const lidarprocessor_get_occupancy: (a: number) => any;
+export const lidarprocessor_get_intensity: (a: number) => any;
+export const lidarprocessor_get_bev_tensor: (a: number) => any;
+export const lidarprocessor_render_to_rgba: (a: number, b: number) => any;
+export const lidarprocessor_count_occupied: (a: number) => number;
+export const lidarprocessor_clear: (a: number) => void;
+export const lidarprocessor_width: (a: number) => number;
+export const lidarprocessor_height: (a: number) => number;
+export const __wbg_flowestimator_free: (a: number, b: number) => void;
+export const flowestimator_new: (a: number, b: number) => number;
+export const flowestimator_compute_flow: (a: number, b: any) => any;
+export const compute_risk_map: (a: any, b: any, c: any, d: number, e: number) => any;
+export const plan_trajectory: (a: any, b: number, c: number, d: number) => any;
+export const init: () => void;
+export const __wbindgen_free: (a: number, b: number, c: number) => void;
+export const __wbindgen_malloc: (a: number, b: number) => number;
+export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+export const __wbindgen_externrefs: WebAssembly.Table;
+export const __wbindgen_start: () => void;

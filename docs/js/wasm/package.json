@@ -1,0 +1,17 @@
+{
+  "name": "alpamayo_wasm",
+  "type": "module",
+  "description": "WASM module for Alpamayo LiDAR BEV processing",
+  "version": "0.1.0",
+  "license": "MIT",
+  "files": [
+    "alpamayo_wasm_bg.wasm",
+    "alpamayo_wasm.js",
+    "alpamayo_wasm.d.ts"
+  ],
+  "main": "alpamayo_wasm.js",
+  "types": "alpamayo_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

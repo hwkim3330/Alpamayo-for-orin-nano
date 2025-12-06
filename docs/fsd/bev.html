@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alpamayo BEV Dashboard</title>
+    <title>Alpamayo BEV Dashboard (WASM Accelerated)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -360,6 +360,26 @@
                 </div>
             </div>
 
+            <!-- WASM Performance -->
+            <div class="card">
+                <div class="card-title">WASM Acceleration</div>
+                <div class="status-row">
+                    <span class="status-label">Engine</span>
+                    <span class="status-value">
+                        <span class="status-dot disconnected" id="wasmDot"></span>
+                        <span id="wasmStatus">Loading...</span>
+                    </span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Process Time</span>
+                    <span class="status-value"><span id="processTime">--</span> ms</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Speedup</span>
+                    <span class="status-value"><span id="speedup">--</span>x</span>
+                </div>
+            </div>
+
             <!-- Controls -->
             <div class="card">
                 <div class="card-title">Visualization</div>
@@ -384,7 +404,13 @@
     <script src="../js/lib/roslib.min.js"></script>
     <script src="../js/lib/three.min.js"></script>
     <script src="../js/lidar-viewer.js"></script>
-    <script>
+    <script type="module">
+        // Import WASM processor
+        import { WASMLiDARProcessor } from '../js/wasm-lidar-processor.js';
+
+        // Initialize WASM processor
+        const wasmProcessor = new WASMLiDARProcessor();
+
         // Initialize viewers
         const lidar2D = new LiDARViewer('lidarCanvas', {
             colorScheme: 'distance'
@@ -399,7 +425,36 @@
         let scanCount = 0;
         let lastScanTime = Date.now();
 
-        function toggleConnection() {
+        // Initialize WASM
+        async function initWasm() {
+            const success = await wasmProcessor.init();
+            updateWasmStatus(success);
+        }
+
+        function updateWasmStatus(isReady) {
+            const dot = document.getElementById('wasmDot');
+            const status = document.getElementById('wasmStatus');
+            if (isReady) {
+                dot.className = 'status-dot connected';
+                status.textContent = 'WASM Active';
+            } else {
+                dot.className = 'status-dot disconnected';
+                status.textContent = 'JS Fallback';
+            }
+        }
+
+        function updateWasmPerformance(result) {
+            if (result && result.processingTime !== undefined) {
+                document.getElementById('processTime').textContent = result.processingTime.toFixed(2);
+            }
+
+            const stats = wasmProcessor.getPerformanceStats();
+            if (stats.speedup > 1) {
+                document.getElementById('speedup').textContent = stats.speedup.toFixed(1);
+            }
+        }
+
+        window.toggleConnection = function() {
             if (connected) {
                 disconnect();
             } else {
@@ -452,7 +507,11 @@
             });
 
             scanTopic.subscribe((scan) => {
-                // Process and render
+                // Process with WASM (parallel to JS viewer)
+                const wasmResult = wasmProcessor.processScan(scan);
+                updateWasmPerformance(wasmResult);
+
+                // Process and render with JS viewer
                 const points = lidar2D.processLaserScan(scan);
                 lidar2D.render();
 
@@ -470,23 +529,27 @@
 
                 document.getElementById('pointCount').textContent = points.length;
 
-                // Count occupied cells
-                const bevGrid = lidar2D.getBEVGrid();
-                let occupied = 0;
-                for (let i = 0; i < bevGrid.occupancy.length; i++) {
-                    if (bevGrid.occupancy[i] > 0.1) occupied++;
+                // Use WASM occupied count if available
+                if (wasmResult && wasmResult.useWasm) {
+                    document.getElementById('occupiedCells').textContent = wasmResult.occupiedCells;
+                } else {
+                    const bevGrid = lidar2D.getBEVGrid();
+                    let occupied = 0;
+                    for (let i = 0; i < bevGrid.occupancy.length; i++) {
+                        if (bevGrid.occupancy[i] > 0.1) occupied++;
+                    }
+                    document.getElementById('occupiedCells').textContent = occupied;
                 }
-                document.getElementById('occupiedCells').textContent = occupied;
             });
         }
 
-        function updatePointSize() {
+        window.updatePointSize = function() {
             const size = parseInt(document.getElementById('pointSize').value);
             document.getElementById('pointSizeValue').textContent = size;
             lidar2D.config.pointSize = size;
         }
 
-        function setColorScheme(scheme) {
+        window.setColorScheme = function(scheme) {
             lidar2D.config.colorScheme = scheme;
 
             // Update buttons
@@ -501,7 +564,7 @@
         // Demo mode with simulated LiDAR
         let demoInterval = null;
 
-        function startDemo() {
+        window.startDemo = function() {
             if (demoInterval) {
                 clearInterval(demoInterval);
                 demoInterval = null;
@@ -515,7 +578,7 @@
 
             demoInterval = setInterval(() => {
                 // Generate simulated scan
-                const numPoints = 360;
+                const numPoints = 720;  // Higher resolution for WASM benchmark
                 const ranges = [];
                 const intensities = [];
 
@@ -543,6 +606,15 @@
                         range = 3 + Math.cos(angle) * 0.5;
                     }
 
+                    // Complex environment - multiple obstacles
+                    for (let j = 0; j < 5; j++) {
+                        const obsAngle = (j / 5) * Math.PI * 2 + angle * 0.3;
+                        const obsDist = 2 + j;
+                        if (Math.abs(a - obsAngle) < 0.1) {
+                            range = Math.min(range, obsDist);
+                        }
+                    }
+
                     // Add noise
                     range += (Math.random() - 0.5) * 0.1;
                     range = Math.max(0.5, Math.min(12, range));
@@ -559,6 +631,11 @@
                     intensities: intensities
                 };
 
+                // Process with WASM
+                const wasmResult = wasmProcessor.processScan(fakeScan);
+                updateWasmPerformance(wasmResult);
+
+                // Process with JS viewer
                 const points = lidar2D.processLaserScan(fakeScan);
                 lidar2D.render();
                 lidar3D.updatePoints(fakeScan);
@@ -567,18 +644,23 @@
                 document.getElementById('scanRate').textContent = '10';
                 document.getElementById('gridFps').textContent = '10';
 
-                const bevGrid = lidar2D.getBEVGrid();
-                let occupied = 0;
-                for (let i = 0; i < bevGrid.occupancy.length; i++) {
-                    if (bevGrid.occupancy[i] > 0.1) occupied++;
+                if (wasmResult && wasmResult.useWasm) {
+                    document.getElementById('occupiedCells').textContent = wasmResult.occupiedCells;
+                } else {
+                    const bevGrid = lidar2D.getBEVGrid();
+                    let occupied = 0;
+                    for (let i = 0; i < bevGrid.occupancy.length; i++) {
+                        if (bevGrid.occupancy[i] > 0.1) occupied++;
+                    }
+                    document.getElementById('occupiedCells').textContent = occupied;
                 }
-                document.getElementById('occupiedCells').textContent = occupied;
 
                 angle += 0.05;
             }, 100);
         }
 
-        // Initial render
+        // Initialize
+        initWasm();
         lidar2D.render();
     </script>
 </body>
